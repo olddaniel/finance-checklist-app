@@ -115,11 +115,10 @@ export default function CheckboxItem({
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
-        onClick={onChange}
       >
         <button
           className={`item-checkbox${checked ? " checked" : ""}${snoozed ? " snoozed" : ""}`}
-          onClick={(e) => { e.stopPropagation(); onChange(); }}
+          onClick={onChange}
           role="checkbox" aria-checked={checked} aria-label={label}
         >
           {checked && (
