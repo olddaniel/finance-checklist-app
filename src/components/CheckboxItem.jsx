@@ -1,11 +1,10 @@
 import { useState, useEffect, useRef } from "react";
+import { MONTHS, REVENUE } from "../utils";
 
 // Distance (px) at which the action commits on release
 const THRESHOLD = 80;
 // Rubber-band resistance past the threshold (fraction of extra movement applied)
 const BAND = 0.25;
-
-const MONTHS = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
 
 function TrashIcon() {
   return (
@@ -31,8 +30,10 @@ export default function CheckboxItem({
   value, onValueChange,
   dueDate, onDateChange,
   dateMode = "days",
+  kind, onOpenDetails,
   onRemove, onRename,
 }) {
+  const isRevenue = kind === REVENUE;
   // ── Swipe ──
   const [offset,  setOffset]  = useState(0);
   const [animate, setAnimate] = useState(false);
@@ -70,6 +71,13 @@ export default function CheckboxItem({
     else                           { snap(0); }
   }
 
+  // Tapping the row anywhere other than the checkbox, the label, the value or
+  // the day opens the detail modal. Swipes must not count as taps.
+  function handleRowClick() {
+    if (touch.current.dir === "h" || offset !== 0) return;
+    onOpenDetails?.();
+  }
+
   // ── Edit ──
   const [editing, setEditing] = useState(false);
   const [draft,   setDraft]   = useState(label);
@@ -88,7 +96,7 @@ export default function CheckboxItem({
   const dirClass = swipingRight ? " swiping-right" : swipingLeft ? " swiping-left" : "";
 
   return (
-    <li className={`item-outer${checked ? " item-checked" : ""}${snoozed ? " item-snoozed" : ""}${dirClass}`}>
+    <li className={`item-outer${checked ? " item-checked" : ""}${snoozed ? " item-snoozed" : ""}${isRevenue ? " item-revenue" : ""}${dirClass}`}>
       {/* Snooze zone — fills container, revealed when row slides right */}
       <button
         className={`item-snooze-zone${snoozed ? " active" : ""}${overThreshold && swipingRight ? " over-threshold" : ""}`}
@@ -115,10 +123,11 @@ export default function CheckboxItem({
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
+        onClick={handleRowClick}
       >
         <button
           className={`item-checkbox${checked ? " checked" : ""}${snoozed ? " snoozed" : ""}`}
-          onClick={onChange}
+          onClick={(e) => { e.stopPropagation(); onChange(); }}
           role="checkbox" aria-checked={checked} aria-label={label}
         >
           {checked && (
@@ -158,7 +167,7 @@ export default function CheckboxItem({
 
         <span className="item-right" onClick={(e) => e.stopPropagation()}>
           <span className="item-value-wrapper">
-            <span className="item-value-prefix">R$</span>
+            <span className="item-value-prefix">{isRevenue ? "+R$" : "R$"}</span>
             <input
               type="number"
               className="item-value-input"

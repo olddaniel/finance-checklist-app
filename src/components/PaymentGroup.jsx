@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import CheckboxItem from "./CheckboxItem";
-import { formatBRL } from "../utils";
+import { formatBRL, formatBRLAlways, formatBRLSigned, kindOf, REVENUE } from "../utils";
 
 function formatDate(iso) {
   if (!iso) return null;
@@ -38,6 +38,7 @@ export default function PaymentGroup({
   group, checked, onToggle, onReset,
   snoozed, onToggleSnooze,
   values, onValueChange,
+  kinds, onOpenDetails,
   dates, onDateChange,
   lastReset,
   onAddItem, onRemoveItem, onRenameItem,
@@ -66,8 +67,13 @@ export default function PaymentGroup({
   // Suppress Android long-press vibration/context-menu on the handle
   function handleDragHandleContextMenu(e) { e.preventDefault(); }
 
+  // ── Metrics panel — opened by tapping the header ──
+  // Visibility cycling (open → semi → closed) lives on the progress badge only.
+  const [metricsOpen, setMetricsOpen] = useState(false);
+  const metricsVisible = metricsOpen && !isDragging;
+
   function handleHeaderClick() {
-    onToggleCollapsed(total === 0);
+    setMetricsOpen((v) => !v);
   }
 
   // ── Edit panel state ──
@@ -121,10 +127,25 @@ export default function PaymentGroup({
   const allDone = done === total && total > 0;
   const pct     = total === 0 ? 0 : (done / total) * 100;
 
-  // snoozed items are excluded from the sum (they reduce the group total)
+  // snoozed items are excluded from the sums (they reduce the group total)
   const activeItems = group.items.filter((i) => !snoozed[i.id]);
-  const totalSum = activeItems.reduce((s, i) => s + (values[i.id] || 0), 0);
-  const paidSum  = activeItems.reduce((s, i) => s + (checked[i.id] ? values[i.id] || 0 : 0), 0);
+
+  const sumBy = (isRevenue, onlyExecuted) =>
+    activeItems.reduce((s, i) => {
+      if ((kindOf(kinds, i.id) === REVENUE) !== isRevenue) return s;
+      if (onlyExecuted && !checked[i.id]) return s;
+      return s + (values[i.id] || 0);
+    }, 0);
+
+  const plannedExpense  = sumBy(false, false);
+  const executedExpense = sumBy(false, true);
+  const plannedRevenue  = sumBy(true,  false);
+  const executedRevenue = sumBy(true,  true);
+
+  const netPlanned  = plannedRevenue  - plannedExpense;
+  const netExecuted = executedRevenue - executedExpense;
+
+  const hasAmounts = plannedExpense > 0 || plannedRevenue > 0;
 
   const resetDate = formatDate(lastReset);
 
@@ -147,12 +168,16 @@ export default function PaymentGroup({
     >
       {/* Header */}
       <div
-        className={`group-header${isClosed ? " group-header-collapsed" : ""}`}
+        className={`group-header${isClosed ? " group-header-collapsed" : ""}${metricsVisible ? " metrics-open" : ""}`}
         onClick={handleHeaderClick}
+        role="button"
+        aria-expanded={metricsVisible}
+        aria-label={metricsVisible ? "Ocultar métricas do grupo" : "Mostrar métricas do grupo"}
       >
         <span
           className="group-drag-handle"
           onPointerDown={handleDragHandlePointerDown}
+          onClick={(e) => e.stopPropagation()}
           onContextMenu={handleDragHandleContextMenu}
           role="button"
           aria-label="Arrastar para reordenar"
@@ -178,14 +203,26 @@ export default function PaymentGroup({
               </button>
             )}
           </div>
-          {totalSum > 0 && (
+          {hasAmounts && (
             <div className="group-meta">
-              <span className="group-sum">
-                {paidSum > 0 && (
-                  <><span className="sum-paid">{formatBRL(paidSum)}</span><span className="sum-sep"> / </span></>
-                )}
-                <span>{formatBRL(totalSum)}</span>
-              </span>
+              {plannedExpense > 0 && (
+                <span className="group-sum" title="Despesas executadas / planejadas">
+                  <span className="sum-arrow expense" aria-hidden="true">↓</span>
+                  {executedExpense > 0 && (
+                    <><span className="sum-paid">{formatBRL(executedExpense)}</span><span className="sum-sep"> / </span></>
+                  )}
+                  <span>{formatBRL(plannedExpense)}</span>
+                </span>
+              )}
+              {plannedRevenue > 0 && (
+                <span className="group-sum" title="Receitas executadas / planejadas">
+                  <span className="sum-arrow revenue" aria-hidden="true">↑</span>
+                  {executedRevenue > 0 && (
+                    <><span className="sum-received">{formatBRL(executedRevenue)}</span><span className="sum-sep"> / </span></>
+                  )}
+                  <span>{formatBRL(plannedRevenue)}</span>
+                </span>
+              )}
             </div>
           )}
         </div>
@@ -211,6 +248,46 @@ export default function PaymentGroup({
       {/* Per-group progress bar */}
       <div className="group-progress-bar">
         <div className="group-progress-fill" style={{ width: `${pct}%` }} />
+      </div>
+
+      {/* Metrics panel — slides open when the header is tapped */}
+      <div className={`group-metrics-panel${metricsVisible ? " open" : ""}`}>
+        <div className="group-metrics-inner">
+          <div className="group-metrics-content">
+            <div className="metric-row">
+              <span className="metric-label">Executado</span>
+              <span className="metric-pair">
+                <span className="metric-revenue">{formatBRLAlways(executedRevenue)}</span>
+                <span className="metric-vs">vs</span>
+                <span className="metric-expense">{formatBRLAlways(executedExpense)}</span>
+              </span>
+            </div>
+            <div className="metric-row">
+              <span className="metric-label">Planejado</span>
+              <span className="metric-pair">
+                <span className="metric-revenue">{formatBRLAlways(plannedRevenue)}</span>
+                <span className="metric-vs">vs</span>
+                <span className="metric-expense">{formatBRLAlways(plannedExpense)}</span>
+              </span>
+            </div>
+            <div className="metric-row metric-net">
+              <span className="metric-label">Saldo executado</span>
+              <span className={`metric-net-value${netExecuted < 0 ? " negative" : netExecuted > 0 ? " positive" : ""}`}>
+                {formatBRLSigned(netExecuted)}
+              </span>
+            </div>
+            <div className="metric-row metric-net">
+              <span className="metric-label">Saldo planejado</span>
+              <span className={`metric-net-value${netPlanned < 0 ? " negative" : netPlanned > 0 ? " positive" : ""}`}>
+                {formatBRLSigned(netPlanned)}
+              </span>
+            </div>
+            <div className="metric-legend">
+              <span><span className="sum-arrow revenue" aria-hidden="true">↑</span> receita</span>
+              <span><span className="sum-arrow expense" aria-hidden="true">↓</span> despesa</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Edit panel — slides open below header when isEditing */}
@@ -288,6 +365,8 @@ export default function PaymentGroup({
               dueDate={dates[item.id] ?? null}
               onDateChange={(val) => onDateChange(item.id, val)}
               dateMode={group.dateMode}
+              kind={kindOf(kinds, item.id)}
+              onOpenDetails={() => onOpenDetails(item.id)}
               onRemove={() => onRemoveItem(item.id)}
               onRename={(newLabel) => onRenameItem(item.id, newLabel)}
             />

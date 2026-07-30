@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { DEFAULT_PAYMENTS } from "../data";
+import { EXPENSE, REVENUE } from "../utils";
 
 const STORAGE_KEY = "payment-tracker-state";
 
@@ -57,6 +58,9 @@ export function usePayments() {
   const [checked,         setChecked]         = useState(() => loadState()?.checked         ?? {});
   const [snoozed,         setSnoozed]         = useState(() => loadState()?.snoozed         ?? {});
   const [values,          setValues]          = useState(() => loadState()?.values          ?? {});
+  // Item kind: "expense" | "revenue". Absent = expense, so every value that was
+  // already stored before this field existed keeps counting as an expense.
+  const [kinds,           setKinds]           = useState(() => loadState()?.kinds           ?? {});
   const [lastResets,      setLastResets]      = useState(() => loadState()?.lastResets      ?? {});
   const [dates,           setDates]           = useState(() => loadState()?.dates           ?? {});
   const [sortMode,        setSortModeState]   = useState(() => loadState()?.sortMode        ?? "manual");
@@ -71,8 +75,8 @@ export function usePayments() {
   });
 
   useEffect(() => {
-    saveState({ groups, checked, snoozed, values, lastResets, dates, sortMode, collapsedGroups });
-  }, [groups, checked, snoozed, values, lastResets, dates, sortMode, collapsedGroups]);
+    saveState({ groups, checked, snoozed, values, kinds, lastResets, dates, sortMode, collapsedGroups });
+  }, [groups, checked, snoozed, values, kinds, lastResets, dates, sortMode, collapsedGroups]);
 
   // Checking an item clears any snooze on it
   const toggle = useCallback((id) => {
@@ -95,6 +99,10 @@ export function usePayments() {
   const setItemValue = useCallback((id, rawValue) => {
     const num = parseFloat(rawValue);
     setValues((prev) => ({ ...prev, [id]: isNaN(num) ? 0 : num }));
+  }, []);
+
+  const setItemKind = useCallback((id, kind) => {
+    setKinds((prev) => ({ ...prev, [id]: kind === REVENUE ? REVENUE : EXPENSE }));
   }, []);
 
   const setItemDate = useCallback((id, rawValue) => {
@@ -140,10 +148,11 @@ export function usePayments() {
     setChecked((prev) => { const n = { ...prev }; delete n[itemId]; return n; });
     setSnoozed((prev) => { const n = { ...prev }; delete n[itemId]; return n; });
     setValues((prev)  => { const n = { ...prev }; delete n[itemId]; return n; });
+    setKinds((prev)   => { const n = { ...prev }; delete n[itemId]; return n; });
     setDates((prev)   => { const n = { ...prev }; delete n[itemId]; return n; });
   }, []);
 
-  const restoreItem = useCallback((groupId, index, item, value, date) => {
+  const restoreItem = useCallback((groupId, index, item, value, date, kind) => {
     setGroups((prev) =>
       prev.map((g) => {
         if (g.id !== groupId) return g;
@@ -154,6 +163,7 @@ export function usePayments() {
     );
     if (value !== undefined) setValues((prev) => ({ ...prev, [item.id]: value }));
     if (date  !== undefined) setDates ((prev) => ({ ...prev, [item.id]: date  }));
+    if (kind  !== undefined) setKinds ((prev) => ({ ...prev, [item.id]: kind  }));
   }, []);
 
   const renameItem = useCallback((groupId, itemId, newLabel) => {
@@ -191,6 +201,7 @@ export function usePayments() {
         setChecked((c) => { const n = { ...c }; ids.forEach((id) => delete n[id]); return n; });
         setSnoozed((s) => { const n = { ...s }; ids.forEach((id) => delete n[id]); return n; });
         setValues((v)  => { const n = { ...v }; ids.forEach((id) => delete n[id]); return n; });
+        setKinds((k)   => { const n = { ...k }; ids.forEach((id) => delete n[id]); return n; });
         setDates((d)   => { const n = { ...d }; ids.forEach((id) => delete n[id]); return n; });
       }
       return prev.filter((g) => g.id !== groupId);
@@ -231,6 +242,7 @@ export function usePayments() {
     groups, checked, toggle,
     snoozed, toggleSnooze,
     values, setItemValue,
+    kinds, setItemKind,
     dates, setItemDate,
     lastResets, resetGroup,
     addItem, removeItem, restoreItem, renameItem,

@@ -1,7 +1,9 @@
 import { useState, useRef, useMemo, useEffect } from "react";
 import { usePayments } from "./hooks/usePayments";
 import PaymentGroup from "./components/PaymentGroup";
+import ItemDetailModal from "./components/ItemDetailModal";
 import Toast from "./components/Toast";
+import { kindOf, REVENUE } from "./utils";
 import "./App.css";
 
 const SORT_CYCLE     = ["manual", "value", "date"];
@@ -21,6 +23,7 @@ function App() {
     groups, checked, toggle,
     snoozed, toggleSnooze,
     values, setItemValue,
+    kinds, setItemKind,
     dates, setItemDate,
     lastResets, resetGroup,
     addItem, removeItem, restoreItem, renameItem,
@@ -28,6 +31,9 @@ function App() {
     collapsedGroups, toggleGroupCollapsed, collapseAllGroups,
     addGroup, removeGroup, renameGroup, changeGroupDateMode, applyGroupOrder,
   } = usePayments();
+
+  // Row detail modal — holds the id so the modal follows live state updates
+  const [detailItemId, setDetailItemId] = useState(null);
 
   const [addingGroup, setAddingGroup] = useState(false);
   const [newGroupLabel, setNewGroupLabel] = useState("");
@@ -154,8 +160,9 @@ function App() {
     const item  = group?.items[index];
     const value = values[itemId];
     const date  = dates[itemId];
+    const kind  = kinds[itemId];
     removeItem(groupId, itemId);
-    if (item) showToast(`"${item.label}" removida`, () => restoreItem(groupId, index, item, value, date));
+    if (item) showToast(`"${item.label}" removida`, () => restoreItem(groupId, index, item, value, date, kind));
   }
 
   function handleToggle(itemId) {
@@ -163,7 +170,8 @@ function App() {
     toggle(itemId);
     if (!wasChecked) {
       const found = findItem(itemId);
-      showToast(`"${found?.item.label ?? "Conta"}" paga`, () => toggle(itemId));
+      const done  = kindOf(kinds, itemId) === REVENUE ? "recebida" : "paga";
+      showToast(`"${found?.item.label ?? "Conta"}" ${done}`, () => toggle(itemId));
     }
   }
 
@@ -200,6 +208,7 @@ function App() {
       snoozed, onToggleSnooze: (id) => handleToggleSnooze(id),
       onReset: () => resetGroup(group.id),
       values, onValueChange: setItemValue,
+      kinds,  onOpenDetails: (itemId) => setDetailItemId(itemId),
       dates,  onDateChange:  setItemDate,
       lastReset: lastResets[group.id] ?? null,
       onAddItem:    (label) => addItem(group.id, label),
@@ -213,6 +222,9 @@ function App() {
       onChangeDateMode:   (m) => changeGroupDateMode(group.id, m),
     };
   }
+
+  // Reads live state each render, and resolves to null if the row disappears
+  const detail = detailItemId ? findItem(detailItemId) : null;
 
   return (
     <div className={`app${drag ? " is-dragging" : ""}`}>
@@ -311,8 +323,35 @@ function App() {
             onAddItem={NOOP} onRemoveItem={NOOP} onRenameItem={NOOP}
             onToggleCollapsed={NOOP} onRemoveGroup={NOOP}
             onRenameGroup={NOOP}    onChangeDateMode={NOOP}
+            onOpenDetails={NOOP}
           />
         </div>
+      )}
+
+      {/* Row detail modal */}
+      {detail && (
+        <ItemDetailModal
+          key={detail.item.id}
+          groupTitle={detail.group.title}
+          item={detail.item}
+          dateMode={detail.group.dateMode}
+          kind={kindOf(kinds, detail.item.id)}
+          checked={!!checked[detail.item.id]}
+          snoozed={!!snoozed[detail.item.id]}
+          value={values[detail.item.id] || ""}
+          dueDate={dates[detail.item.id] ?? null}
+          onClose={() => setDetailItemId(null)}
+          onToggleChecked={() => handleToggle(detail.item.id)}
+          onToggleSnooze={() => handleToggleSnooze(detail.item.id)}
+          onKindChange={(kind) => setItemKind(detail.item.id, kind)}
+          onValueChange={(val) => setItemValue(detail.item.id, val)}
+          onDateChange={(val) => setItemDate(detail.item.id, val)}
+          onRename={(label) => renameItem(detail.group.id, detail.item.id, label)}
+          onRemove={() => {
+            handleRemoveItem(detail.group.id, detail.item.id);
+            setDetailItemId(null);
+          }}
+        />
       )}
 
       <Toast
