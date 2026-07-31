@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import CheckboxItem from "./CheckboxItem";
+import GroupBalanceTimeline from "./GroupBalanceTimeline";
 import { formatBRL, formatBRLAlways, formatBRLSigned, kindOf, REVENUE } from "../utils";
 
 function formatDate(iso) {
@@ -10,8 +11,18 @@ function formatDate(iso) {
 }
 
 
-// Three-state chevron: open=down, semi=diagonal, closed=right
-function ChevronIcon({ viewState }) {
+// Chevron for the item views: open=down, semi=diagonal, closed=right.
+// The balance view gets its own glyph instead — there is no fourth rotation.
+function ViewStateIcon({ viewState }) {
+  if (viewState === "balance") {
+    return (
+      <svg width="11" height="11" viewBox="0 0 12 12" fill="none"
+        aria-hidden="true" className="chevron chevron-balance">
+        <path d="M1.5 8.5l3-3 2 2 4-4" stroke="currentColor" strokeWidth="1.6"
+          strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
   return (
     <svg width="11" height="11" viewBox="0 0 12 12" fill="none"
       aria-hidden="true" className={`chevron chevron-${viewState}`}>
@@ -41,6 +52,7 @@ export default function PaymentGroup({
   kinds, onOpenDetails,
   dates, onDateChange,
   lastReset,
+  openingBalance = 0, onOpeningBalanceChange,
   onAddItem, onRemoveItem, onRenameItem,
   sortMode,
   viewState = "open",
@@ -102,8 +114,10 @@ export default function PaymentGroup({
     if (adding) inputRef.current?.focus();
   }, [adding]);
 
-  const isClosed = viewState === "closed";
-  const isSemi   = viewState === "semi";
+  const isClosed  = viewState === "closed";
+  const isSemi    = viewState === "semi";
+  const isOpen    = viewState === "open";
+  const isBalance = viewState === "balance";
 
   // Sorted items
   const sortedItems = useMemo(() => {
@@ -147,6 +161,10 @@ export default function PaymentGroup({
 
   const hasAmounts = plannedExpense > 0 || plannedRevenue > 0;
 
+  // The balance view needs due dates to lay a timeline out, and at least one item
+  const canShowBalance = group.dateMode !== "none" && total > 0;
+  const viewCycleSkips = { skipSemi: total === 0, skipBalance: !canShowBalance };
+
   const resetDate = formatDate(lastReset);
 
   function handleAdd() {
@@ -188,7 +206,7 @@ export default function PaymentGroup({
         <div className="group-title-block">
           <div className="group-title-row">
             <h2 className="group-title">{group.title}</h2>
-            {!isClosed && !isSemi && (
+            {isOpen && (
               <button
                 className={`group-edit-btn${isEditing ? " active" : ""}`}
                 onClick={(e) => { e.stopPropagation(); setIsEditing((v) => !v); }}
@@ -229,18 +247,20 @@ export default function PaymentGroup({
 
         <div className="group-header-right">
           <button
-            className={`progress-badge${isSemi ? " semi" : ""}`}
-            onClick={(e) => { e.stopPropagation(); onToggleCollapsed(total === 0); }}
+            className={`progress-badge${isSemi ? " semi" : ""}${isBalance ? " balance" : ""}`}
+            onClick={(e) => { e.stopPropagation(); onToggleCollapsed(viewCycleSkips); }}
             aria-label={
-              isClosed ? "Mostrar pendentes" :
-              isSemi   ? "Expandir tudo" :
-                         "Recolher grupo"
+              isClosed  ? "Mostrar pendentes" :
+              isSemi    ? "Expandir tudo" :
+              isBalance ? "Recolher grupo" :
+              canShowBalance ? "Mostrar saldo por período" :
+                        "Recolher grupo"
             }
           >
             <span className="progress-done">{done}</span>
             <span className="progress-sep">/</span>
             <span className="progress-total">{total}</span>
-            <ChevronIcon viewState={viewState} />
+            <ViewStateIcon viewState={viewState} />
           </button>
         </div>
       </div>
@@ -349,8 +369,26 @@ export default function PaymentGroup({
         </div>
       </div>
 
+      {/* Balance projection — replaces the item list in the "balance" view */}
+      <div className={`balance-wrapper${isBalance ? "" : " collapsed"}`}>
+        <div className="balance-inner">
+          <GroupBalanceTimeline
+            items={group.items}
+            checked={checked}
+            snoozed={snoozed}
+            values={values}
+            kinds={kinds}
+            dates={dates}
+            dateMode={group.dateMode}
+            openingBalance={openingBalance}
+            onOpeningBalanceChange={onOpeningBalanceChange}
+            lastReset={lastReset}
+          />
+        </div>
+      </div>
+
       {/* Collapsible items + add row */}
-      <div className={`item-list-wrapper${isClosed ? " collapsed" : ""}`}>
+      <div className={`item-list-wrapper${isClosed || isBalance ? " collapsed" : ""}`}>
         <ul className="item-list">
           {displayItems.map((item) => (
             <CheckboxItem
@@ -372,7 +410,7 @@ export default function PaymentGroup({
             />
           ))}
 
-          {!isSemi && (adding ? (
+          {!isSemi && !isBalance && (adding ? (
             <li className="item-add-form">
               <input
                 ref={inputRef}

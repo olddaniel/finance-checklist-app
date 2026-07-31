@@ -4,6 +4,10 @@ import { EXPENSE, REVENUE } from "../utils";
 
 const STORAGE_KEY = "payment-tracker-state";
 
+// Group view states, in cycling order — each tap of the progress badge moves one
+// step down the list and wraps around.
+const VIEW_STATES = ["closed", "semi", "open", "balance"];
+
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -64,19 +68,22 @@ export function usePayments() {
   const [lastResets,      setLastResets]      = useState(() => loadState()?.lastResets      ?? {});
   const [dates,           setDates]           = useState(() => loadState()?.dates           ?? {});
   const [sortMode,        setSortModeState]   = useState(() => loadState()?.sortMode        ?? "manual");
+  // Per-group starting balance for the "balance" view — the money on hand at the
+  // moment the group was last reset, which the day-by-day projection builds on.
+  const [openingBalances, setOpeningBalances] = useState(() => loadState()?.openingBalances ?? {});
   const [collapsedGroups, setCollapsedGroups] = useState(() => {
     const saved = loadState()?.collapsedGroups ?? {};
-    // migrate old boolean values → "open" | "semi" | "closed"
+    // migrate old boolean values → "open" | "semi" | "closed" | "balance"
     return Object.fromEntries(
       Object.entries(saved).map(([k, v]) =>
-        [k, v === true ? "closed" : (v === "semi" || v === "closed") ? v : "open"]
+        [k, v === true ? "closed" : VIEW_STATES.includes(v) ? v : "open"]
       )
     );
   });
 
   useEffect(() => {
-    saveState({ groups, checked, snoozed, values, kinds, lastResets, dates, sortMode, collapsedGroups });
-  }, [groups, checked, snoozed, values, kinds, lastResets, dates, sortMode, collapsedGroups]);
+    saveState({ groups, checked, snoozed, values, kinds, lastResets, dates, sortMode, collapsedGroups, openingBalances });
+  }, [groups, checked, snoozed, values, kinds, lastResets, dates, sortMode, collapsedGroups, openingBalances]);
 
   // Checking an item clears any snooze on it
   const toggle = useCallback((id) => {
@@ -108,6 +115,12 @@ export function usePayments() {
   const setItemDate = useCallback((id, rawValue) => {
     const num = parseInt(rawValue, 10);
     setDates((prev) => ({ ...prev, [id]: isNaN(num) ? null : num }));
+  }, []);
+
+  // Starting balances may legitimately be negative, so no clamping here
+  const setGroupOpeningBalance = useCallback((groupId, rawValue) => {
+    const num = parseFloat(rawValue);
+    setOpeningBalances((prev) => ({ ...prev, [groupId]: isNaN(num) ? 0 : num }));
   }, []);
 
   const resetGroup = useCallback((groupId) => {
@@ -178,13 +191,15 @@ export function usePayments() {
 
   const setSortMode = useCallback((mode) => setSortModeState(mode), []);
 
-  const VIEW_CYCLE      = { closed: "semi", semi: "open",   open: "closed" };
-  const VIEW_CYCLE_2WAY = { closed: "open", semi: "open",   open: "closed" };
-  const toggleGroupCollapsed = useCallback((groupId, skipSemi = false) => {
+  // States that don't apply to a group are dropped from its cycle: "semi" for an
+  // empty group, "balance" for a group without due dates.
+  const toggleGroupCollapsed = useCallback((groupId, { skipSemi = false, skipBalance = false } = {}) => {
     setCollapsedGroups((prev) => {
-      const cur = prev[groupId] ?? "open";
-      const cycle = skipSemi ? VIEW_CYCLE_2WAY : VIEW_CYCLE;
-      return { ...prev, [groupId]: cycle[cur] ?? "open" };
+      const cycle = VIEW_STATES.filter(
+        (v) => !(v === "semi" && skipSemi) && !(v === "balance" && skipBalance)
+      );
+      const idx = cycle.indexOf(prev[groupId] ?? "open");
+      return { ...prev, [groupId]: cycle[(idx + 1) % cycle.length] ?? "open" };
     });
   }, []);
 
@@ -206,8 +221,9 @@ export function usePayments() {
       }
       return prev.filter((g) => g.id !== groupId);
     });
-    setCollapsedGroups((prev) => { const n = { ...prev }; delete n[groupId]; return n; });
-    setLastResets((prev)      => { const n = { ...prev }; delete n[groupId]; return n; });
+    setCollapsedGroups((prev)  => { const n = { ...prev }; delete n[groupId]; return n; });
+    setLastResets((prev)       => { const n = { ...prev }; delete n[groupId]; return n; });
+    setOpeningBalances((prev)  => { const n = { ...prev }; delete n[groupId]; return n; });
   }, []);
 
   const renameGroup = useCallback((groupId, newTitle) => {
@@ -245,6 +261,7 @@ export function usePayments() {
     kinds, setItemKind,
     dates, setItemDate,
     lastResets, resetGroup,
+    openingBalances, setGroupOpeningBalance,
     addItem, removeItem, restoreItem, renameItem,
     sortMode, setSortMode,
     collapsedGroups, toggleGroupCollapsed, collapseAllGroups,

@@ -26,6 +26,7 @@ function App() {
     kinds, setItemKind,
     dates, setItemDate,
     lastResets, resetGroup,
+    openingBalances, setGroupOpeningBalance,
     addItem, removeItem, restoreItem, renameItem,
     sortMode, setSortMode,
     collapsedGroups, toggleGroupCollapsed, collapseAllGroups,
@@ -211,12 +212,14 @@ function App() {
       kinds,  onOpenDetails: (itemId) => setDetailItemId(itemId),
       dates,  onDateChange:  setItemDate,
       lastReset: lastResets[group.id] ?? null,
+      openingBalance: openingBalances[group.id] ?? 0,
+      onOpeningBalanceChange: (val) => setGroupOpeningBalance(group.id, val),
       onAddItem:    (label) => addItem(group.id, label),
       onRemoveItem: (itemId) => handleRemoveItem(group.id, itemId),
       onRenameItem: (itemId, label) => renameItem(group.id, itemId, label),
       sortMode,
       viewState:          collapsedGroups[group.id] ?? "open",
-      onToggleCollapsed:  () => toggleGroupCollapsed(group.id),
+      onToggleCollapsed:  (skips) => toggleGroupCollapsed(group.id, skips),
       onRemoveGroup:      () => removeGroup(group.id),
       onRenameGroup:      (t) => renameGroup(group.id, t),
       onChangeDateMode:   (m) => changeGroupDateMode(group.id, m),
@@ -323,7 +326,7 @@ function App() {
             onAddItem={NOOP} onRemoveItem={NOOP} onRenameItem={NOOP}
             onToggleCollapsed={NOOP} onRemoveGroup={NOOP}
             onRenameGroup={NOOP}    onChangeDateMode={NOOP}
-            onOpenDetails={NOOP}
+            onOpenDetails={NOOP}    onOpeningBalanceChange={NOOP}
           />
         </div>
       )}
