@@ -68,6 +68,24 @@ function mergeGroups(saved, defaults) {
   return [...result, ...newDefaults];
 }
 
+// Brings a backup — current or from an older version — up to the shape the app
+// expects. Shared by the local and cloud stores so an import behaves the same
+// either way.
+export function normalizeBackup(data) {
+  return {
+    groups:          mergeGroups(data.groups, DEFAULT_PAYMENTS),
+    checked:         data.checked ?? {},
+    snoozed:         data.snoozed ?? {},
+    values:          data.values ?? {},
+    kinds:           data.kinds ?? {},
+    dates:           data.dates ?? {},
+    lastResets:      data.lastResets ?? {},
+    openingBalances: data.openingBalances ?? {},
+    sortMode:        SORT_MODES.includes(data.sortMode) ? data.sortMode : "manual",
+    collapsedGroups: normalizeCollapsed(data.collapsedGroups),
+  };
+}
+
 export function usePayments() {
   const [groups, setGroups] = useState(() => mergeGroups(loadState()?.groups, DEFAULT_PAYMENTS));
   const [checked,         setChecked]         = useState(() => loadState()?.checked         ?? {});
@@ -105,16 +123,17 @@ export function usePayments() {
        sortMode, collapsedGroups, openingBalances]);
 
   const importState = useCallback((data) => {
-    setGroups(mergeGroups(data.groups, DEFAULT_PAYMENTS));
-    setChecked(data.checked ?? {});
-    setSnoozed(data.snoozed ?? {});
-    setValues(data.values ?? {});
-    setKinds(data.kinds ?? {});
-    setDates(data.dates ?? {});
-    setLastResets(data.lastResets ?? {});
-    setOpeningBalances(data.openingBalances ?? {});
-    setSortModeState(SORT_MODES.includes(data.sortMode) ? data.sortMode : "manual");
-    setCollapsedGroups(normalizeCollapsed(data.collapsedGroups));
+    const next = normalizeBackup(data);
+    setGroups(next.groups);
+    setChecked(next.checked);
+    setSnoozed(next.snoozed);
+    setValues(next.values);
+    setKinds(next.kinds);
+    setDates(next.dates);
+    setLastResets(next.lastResets);
+    setOpeningBalances(next.openingBalances);
+    setSortModeState(next.sortMode);
+    setCollapsedGroups(next.collapsedGroups);
   }, []);
 
   // Checking an item clears any snooze on it

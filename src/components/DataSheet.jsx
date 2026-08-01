@@ -22,7 +22,7 @@ function formatStamp(iso) {
   return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
 
-export default function DataSheet({ groupCount, itemCount, onClose, onExport, onImport }) {
+export default function DataSheet({ groupCount, itemCount, onClose, onExport, onImport, account }) {
   const [pending, setPending] = useState(null);
   const [error,   setError]   = useState(null);
   const fileRef = useRef(null);
@@ -77,8 +77,24 @@ export default function DataSheet({ groupCount, itemCount, onClose, onExport, on
         <p className="sheet-summary">
           <strong>{groupCount}</strong> {groupCount === 1 ? "grupo" : "grupos"}
           {" · "}
-          <strong>{itemCount}</strong> {itemCount === 1 ? "conta" : "contas"} neste dispositivo
+          <strong>{itemCount}</strong> {itemCount === 1 ? "conta" : "contas"}
+          {account?.email ? " na sua conta" : " neste dispositivo"}
         </p>
+
+        {account?.email && (
+          <div className="sheet-account">
+            <div className="sheet-account-row">
+              <span className="sheet-account-email">{account.email}</span>
+              <span className={`sheet-account-status ${account.status}`}>
+                {account.status === "saving" ? "salvando..." :
+                 account.status === "error"  ? "erro ao salvar" : "sincronizado"}
+              </span>
+            </div>
+            <button className="sheet-btn" onClick={account.onSignOut} type="button">
+              Sair
+            </button>
+          </div>
+        )}
 
         {!pending && (
           <>
