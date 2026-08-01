@@ -29,21 +29,27 @@ jobs:
         with:
           version: latest
 
-      - name: Link project
-        run: supabase link --project-ref "$SUPABASE_PROJECT_REF"
+      # Accepts either credential style:
+      #   SUPABASE_DB_URL                              — one secret, scoped to this database
+      #   SUPABASE_ACCESS_TOKEN + SUPABASE_DB_PASSWORD — account token, project resolved by ref
+      - name: Apply migrations
         env:
           SUPABASE_PROJECT_REF: nvclbavggphskqvpwylm
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-
-      - name: Show pending migrations
-        run: supabase migration list --linked
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-
-      - name: Apply migrations
-        run: supabase db push
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -n "${SUPABASE_DB_URL:-}" ]; then
+            echo "Credentials: SUPABASE_DB_URL"
+            supabase db push --db-url "$SUPABASE_DB_URL" --dry-run --yes
+            supabase db push --db-url "$SUPABASE_DB_URL" --yes
+          elif [ -n "${SUPABASE_ACCESS_TOKEN:-}" ] && [ -n "${SUPABASE_DB_PASSWORD:-}" ]; then
+            echo "Credentials: access token + database password"
+            supabase link --project-ref "$SUPABASE_PROJECT_REF" --yes
+            supabase migration list --linked
+            supabase db push --linked --yes
+          else
+            echo "::error::No Supabase credentials found. Add either SUPABASE_DB_URL, or both SUPABASE_ACCESS_TOKEN and SUPABASE_DB_PASSWORD, under Settings → Secrets and variables → Actions."
+            exit 1
+          fi
