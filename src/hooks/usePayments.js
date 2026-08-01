@@ -24,6 +24,17 @@ function saveState(state) {
   } catch { /* quota exceeded */ }
 }
 
+const SORT_MODES = ["manual", "value", "date"];
+
+// Accepts the old boolean shape as well as the current string states
+function normalizeCollapsed(saved) {
+  return Object.fromEntries(
+    Object.entries(saved ?? {}).map(([k, v]) =>
+      [k, v === true ? "closed" : VIEW_STATES.includes(v) ? v : "open"]
+    )
+  );
+}
+
 function normalizeDateMode(g) {
   if (g.dateMode) return g.dateMode;        // already migrated
   if (g.noDates) return "none";
@@ -71,19 +82,40 @@ export function usePayments() {
   // Per-group starting balance for the "balance" view — the money on hand at the
   // moment the group was last reset, which the day-by-day projection builds on.
   const [openingBalances, setOpeningBalances] = useState(() => loadState()?.openingBalances ?? {});
-  const [collapsedGroups, setCollapsedGroups] = useState(() => {
-    const saved = loadState()?.collapsedGroups ?? {};
-    // migrate old boolean values → "open" | "semi" | "closed" | "balance"
-    return Object.fromEntries(
-      Object.entries(saved).map(([k, v]) =>
-        [k, v === true ? "closed" : VIEW_STATES.includes(v) ? v : "open"]
-      )
-    );
-  });
+  const [collapsedGroups, setCollapsedGroups] = useState(
+    () => normalizeCollapsed(loadState()?.collapsedGroups)
+  );
 
   useEffect(() => {
     saveState({ groups, checked, snoozed, values, kinds, lastResets, dates, sortMode, collapsedGroups, openingBalances });
   }, [groups, checked, snoozed, values, kinds, lastResets, dates, sortMode, collapsedGroups, openingBalances]);
+
+  // ── Backup ──
+  // exportState returns exactly what gets persisted, plus a little provenance.
+  // importState is its inverse and runs the same normalisation as a cold load,
+  // so importing a backup lands in the same place as restoring it to
+  // localStorage and reloading — including backups from older app versions.
+  const exportState = useCallback(() => ({
+    __app: "finance-tracker",
+    __version: 1,
+    __exportedAt: new Date().toISOString(),
+    groups, checked, snoozed, values, kinds, lastResets, dates,
+    sortMode, collapsedGroups, openingBalances,
+  }), [groups, checked, snoozed, values, kinds, lastResets, dates,
+       sortMode, collapsedGroups, openingBalances]);
+
+  const importState = useCallback((data) => {
+    setGroups(mergeGroups(data.groups, DEFAULT_PAYMENTS));
+    setChecked(data.checked ?? {});
+    setSnoozed(data.snoozed ?? {});
+    setValues(data.values ?? {});
+    setKinds(data.kinds ?? {});
+    setDates(data.dates ?? {});
+    setLastResets(data.lastResets ?? {});
+    setOpeningBalances(data.openingBalances ?? {});
+    setSortModeState(SORT_MODES.includes(data.sortMode) ? data.sortMode : "manual");
+    setCollapsedGroups(normalizeCollapsed(data.collapsedGroups));
+  }, []);
 
   // Checking an item clears any snooze on it
   const toggle = useCallback((id) => {
@@ -266,5 +298,6 @@ export function usePayments() {
     sortMode, setSortMode,
     collapsedGroups, toggleGroupCollapsed, collapseAllGroups,
     addGroup, removeGroup, renameGroup, changeGroupDateMode, applyGroupOrder,
+    exportState, importState,
   };
 }

@@ -2,6 +2,7 @@ import { useState, useRef, useMemo, useEffect } from "react";
 import { usePayments } from "./hooks/usePayments";
 import PaymentGroup from "./components/PaymentGroup";
 import ItemDetailModal from "./components/ItemDetailModal";
+import DataSheet from "./components/DataSheet";
 import Toast from "./components/Toast";
 import { kindOf, REVENUE } from "./utils";
 import "./App.css";
@@ -31,7 +32,10 @@ function App() {
     sortMode, setSortMode,
     collapsedGroups, toggleGroupCollapsed, collapseAllGroups,
     addGroup, removeGroup, renameGroup, changeGroupDateMode, applyGroupOrder,
+    exportState, importState,
   } = usePayments();
+
+  const [dataSheetOpen, setDataSheetOpen] = useState(false);
 
   // Row detail modal — holds the id so the modal follows live state updates
   const [detailItemId, setDetailItemId] = useState(null);
@@ -185,6 +189,26 @@ function App() {
     }
   }
 
+  // ── Backup ──
+  function handleExport() {
+    const json = JSON.stringify(exportState(), null, 2);
+    const url  = URL.createObjectURL(new Blob([json], { type: "application/json" }));
+    const a    = document.createElement("a");
+    a.href     = url;
+    a.download = `finance-tracker-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast("Backup exportado", null);
+  }
+
+  // Snapshot first so the toast can put everything back if the file was wrong
+  function handleImport(data) {
+    const before = exportState();
+    importState(data);
+    setDataSheetOpen(false);
+    showToast("Backup importado", () => importState(before));
+  }
+
   function cycleSortMode() {
     const next = SORT_CYCLE[(SORT_CYCLE.indexOf(sortMode) + 1) % SORT_CYCLE.length];
     setSortMode(next);
@@ -233,7 +257,12 @@ function App() {
     <div className={`app${drag ? " is-dragging" : ""}`}>
       <header className="top-bar">
         <div className="top-bar-inner">
-          <span className="app-icon">💳</span>
+          <button
+            className="app-icon"
+            onClick={() => setDataSheetOpen(true)}
+            aria-label="Dados e backup"
+            title="Dados e backup"
+          >💳</button>
           <h1 className="app-title">Finance Tracker</h1>
           <button
             className={`sort-btn${sortMode !== "manual" ? " active" : ""}`}
@@ -331,6 +360,16 @@ function App() {
         </div>
       )}
 
+      {dataSheetOpen && (
+        <DataSheet
+          groupCount={groups.length}
+          itemCount={groups.reduce((n, g) => n + g.items.length, 0)}
+          onClose={() => setDataSheetOpen(false)}
+          onExport={handleExport}
+          onImport={handleImport}
+        />
+      )}
+
       {/* Row detail modal */}
       {detail && (
         <ItemDetailModal
@@ -360,6 +399,7 @@ function App() {
       <Toast
         message={toast.message}
         onUndo={handleUndoToast}
+        canUndo={!!toast.undoFn}
         visible={toast.visible}
         toastKey={toastKey}
       />

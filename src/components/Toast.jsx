@@ -1,10 +1,10 @@
 const DURATION_MS = 3500;
 
-export default function Toast({ message, onUndo, visible, toastKey }) {
+export default function Toast({ message, onUndo, canUndo = true, visible, toastKey }) {
   return (
     <div className={`toast${visible ? " visible" : ""}`} role="status" aria-live="polite">
       <span className="toast-message">{message}</span>
-      <button className="toast-undo-btn" onClick={onUndo}>Desfazer</button>
+      {canUndo && <button className="toast-undo-btn" onClick={onUndo}>Desfazer</button>}
       {visible && (
         <div
           key={toastKey}
