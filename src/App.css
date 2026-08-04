@@ -12,6 +12,13 @@
   --green-dim: #1e4a38;
   --yellow: #f5a623;
   --red: #e06c5f;
+
+  /* Money direction: revenue is green, expense is red. The soft variants are
+     for amounts repeated on every row, where full saturation reads as alarm. */
+  --revenue: var(--green);
+  --revenue-soft: #6fd0a5;
+  --expense: var(--red);
+  --expense-soft: #cf8d85;
   --radius: 10px;
   --radius-sm: 6px;
 }
@@ -165,16 +172,16 @@
 }
 
 .group-sum { white-space: nowrap; }
-.sum-paid     { color: var(--green); }
-.sum-received { color: var(--accent); }
+.sum-paid     { color: var(--expense); }
+.sum-received { color: var(--revenue); }
 .sum-sep      { color: var(--text-muted); }
 
 .sum-arrow {
   font-size: 10px;
   margin-right: 2px;
 
-  &.expense { color: var(--text-muted); }
-  &.revenue { color: var(--accent); }
+  &.expense { color: var(--expense); }
+  &.revenue { color: var(--revenue); }
 }
 
 .group-last-reset { color: var(--text-muted); white-space: nowrap; }
@@ -268,10 +275,10 @@
   background: rgba(108, 123, 255, 0.1);
 }
 
-/* Balance view badge gets a green tint */
+/* Balance view badge — accent, not green: green now means revenue */
 .progress-badge.balance {
-  border-color: var(--green);
-  background: rgba(62, 207, 142, 0.1);
+  border-color: var(--accent);
+  background: rgba(108, 123, 255, 0.18);
 }
 
 /* ── Chevron — three states ── */
@@ -283,7 +290,7 @@
 .chevron-open   { transform: rotate(0deg); }
 .chevron-semi   { transform: rotate(-45deg); }
 .chevron-closed { transform: rotate(-90deg); }
-.chevron-balance { color: var(--green); }
+.chevron-balance { color: var(--accent); }
 
 /* ── Per-group progress bar ── */
 .group-progress-bar {
@@ -346,8 +353,8 @@
   white-space: nowrap;
 }
 
-.metric-revenue { color: var(--accent); font-weight: 600; }
-.metric-expense { color: var(--text); font-weight: 600; }
+.metric-revenue { color: var(--revenue); font-weight: 600; }
+.metric-expense { color: var(--expense); font-weight: 600; }
 .metric-vs      { color: var(--text-muted); font-size: 10px; }
 
 .metric-net {
@@ -576,8 +583,8 @@
   flex-wrap: wrap;
 }
 
-.balance-rev { color: var(--accent); }
-.balance-exp { color: var(--text-muted); }
+.balance-rev { color: var(--revenue); }
+.balance-exp { color: var(--expense); }
 
 .balance-running {
   font-weight: 700;
@@ -831,12 +838,18 @@
 .item-outer.item-checked .item-value-prefix,
 .item-outer.item-checked .item-value-input { color: var(--text-done); }
 
-/* ── Revenue rows — accent tint + left rail ── */
-.item-outer.item-revenue .item { box-shadow: inset 2px 0 0 var(--accent); }
+/* ── Money direction on each row ── */
+/* Revenue is the exception, so it gets the rail; expense is the default. */
+.item-outer.item-revenue .item { box-shadow: inset 2px 0 0 var(--revenue); }
 
 .item-outer.item-revenue:not(.item-checked):not(.item-snoozed) .item-value-prefix,
 .item-outer.item-revenue:not(.item-checked):not(.item-snoozed) .item-value-input {
-  color: var(--accent);
+  color: var(--revenue);
+}
+
+.item-outer:not(.item-revenue):not(.item-checked):not(.item-snoozed) .item-value-prefix,
+.item-outer:not(.item-revenue):not(.item-checked):not(.item-snoozed) .item-value-input {
+  color: var(--expense-soft);
 }
 
 
@@ -1139,7 +1152,7 @@
   gap: 12px;
   animation: modal-rise 0.2s ease;
 
-  &.revenue { border-color: rgba(108, 123, 255, 0.5); }
+  &.revenue { border-color: rgba(62, 207, 142, 0.5); }
 }
 
 @keyframes modal-rise {
@@ -1253,14 +1266,14 @@
   &:hover { background: var(--surface-hover); color: var(--text); }
 
   &.expense.active {
-    border-color: var(--text);
-    color: var(--text);
-    background: var(--surface-hover);
+    border-color: var(--expense);
+    color: var(--expense);
+    background: rgba(224, 108, 95, 0.12);
   }
   &.revenue.active {
-    border-color: var(--accent);
-    color: var(--accent);
-    background: rgba(108, 123, 255, 0.12);
+    border-color: var(--revenue);
+    color: var(--revenue);
+    background: rgba(62, 207, 142, 0.12);
   }
   &.done.active {
     border-color: var(--green);

@@ -95,14 +95,24 @@ export default function AuthScreen({ onExportLocal, hasLocalData }) {
           {isSignup ? "Já tenho conta" : "Criar uma conta"}
         </button>
 
-        {hasLocalData && (
-          <div className="auth-local">
-            <p>Este dispositivo ainda tem dados salvos localmente.</p>
-            <button type="button" className="auth-local-btn" onClick={onExportLocal}>
-              Exportar backup local
-            </button>
-          </div>
-        )}
+        <div className="auth-local">
+          {hasLocalData && (
+            <>
+              <p>Este dispositivo ainda tem dados salvos localmente.</p>
+              <button type="button" className="auth-local-btn" onClick={onExportLocal}>
+                Exportar backup local
+              </button>
+            </>
+          )}
+          {/* Escape hatch: the purely local app, always reachable without a login */}
+          <button
+            type="button"
+            className="auth-local-btn"
+            onClick={() => { window.location.search = "?cloud=0"; }}
+          >
+            Usar somente neste dispositivo
+          </button>
+        </div>
       </form>
     </div>
   );
