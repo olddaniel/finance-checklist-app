@@ -1,0 +1,112 @@
+// Discovery step: authenticate against Pluggy, find the connected items and
+// their accounts, and store every response verbatim.
+//
+// Deliberately does NOT fetch transactions. Historical transaction pulls are
+// capped at 4 per month per institution, so we spend one only once the item and
+// account shapes are confirmed.
+
+import { createClient } from "jsr:@supabase/supabase-js@2";
+
+const PLUGGY = "https://api.pluggy.ai";
+
+const db = createClient(
+  Deno.env.get("SUPABASE_URL")!,
+  Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+);
+
+async function store(kind: string, payload: unknown, ids: { itemId?: string; accountId?: string } = {}) {
+  const { error } = await db.from("pluggy_raw").insert({
+    kind,
+    item_id: ids.itemId ?? null,
+    account_id: ids.accountId ?? null,
+    payload,
+  });
+  if (error) console.error("store failed", kind, error.message);
+}
+
+// Pluggy returns JSON on success and on most errors; keep the body either way so
+// a failed call is still diagnosable without spending another request.
+async function call(path: string, apiKey: string) {
+  const res = await fetch(`${PLUGGY}${path}`, { headers: { "X-API-KEY": apiKey } });
+  const text = await res.text();
+  let body: unknown;
+  try { body = JSON.parse(text); } catch { body = { raw: text.slice(0, 2000) }; }
+  return { ok: res.ok, status: res.status, body };
+}
+
+Deno.serve(async () => {
+  const clientId = Deno.env.get("PLUGGY_CLIENT_ID");
+  const clientSecret = Deno.env.get("PLUGGY_CLIENT_SECRET");
+  if (!clientId || !clientSecret) {
+    return Response.json({ error: "PLUGGY_CLIENT_ID / PLUGGY_CLIENT_SECRET not set" }, { status: 500 });
+  }
+
+  // ── 1. Authenticate ──
+  const authRes = await fetch(`${PLUGGY}/auth`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ clientId, clientSecret }),
+  });
+  const authBody = await authRes.json().catch(() => ({}));
+  if (!authRes.ok || !authBody.apiKey) {
+    await store("error", { step: "auth", status: authRes.status, body: authBody });
+    return Response.json({ step: "auth", status: authRes.status, body: authBody }, { status: 502 });
+  }
+  const apiKey = authBody.apiKey as string;
+
+  // ── 2. Items. The listing endpoint is the one shape I could not verify from
+  // the docs, so try the likely candidates and report whichever answers. ──
+  const attempts: Record<string, unknown> = {};
+  let items: any[] | null = null;
+
+  for (const path of ["/items", "/items?pageSize=100", "/connectors/200/items"]) {
+    const r = await call(path, apiKey);
+    attempts[path] = { status: r.status, sample: r.ok ? undefined : r.body };
+    if (r.ok) {
+      const b = r.body as any;
+      items = Array.isArray(b) ? b : (b.results ?? b.items ?? null);
+      if (items) { await store("items", b); break; }
+    }
+  }
+
+  if (!items) {
+    await store("error", { step: "items", attempts });
+    return Response.json({ step: "items", message: "no item listing endpoint answered", attempts }, { status: 502 });
+  }
+
+  // ── 3. Accounts per item ──
+  const summary = [];
+  for (const item of items) {
+    const itemId = item.id;
+    const r = await call(`/accounts?itemId=${itemId}`, apiKey);
+    await store(r.ok ? "accounts" : "error", r.body, { itemId });
+
+    const accounts = r.ok ? ((r.body as any).results ?? r.body ?? []) : [];
+    summary.push({
+      itemId,
+      connector: item.connector?.name ?? item.connector?.id ?? null,
+      status: item.status,
+      executionStatus: item.executionStatus,
+      lastUpdatedAt: item.lastUpdatedAt,
+      // Which products this connection actually carries — this is what tells us
+      // whether investments are available for Inter.
+      products: item.products ?? item.connector?.products ?? null,
+      accounts: (accounts as any[]).map((a) => ({
+        id: a.id,
+        type: a.type,
+        subtype: a.subtype,
+        name: a.name,
+        currency: a.currencyCode,
+        // balance intentionally omitted from the response body; it is stored raw
+      })),
+      accountCount: (accounts as any[]).length,
+    });
+  }
+
+  return Response.json({
+    ok: true,
+    itemCount: items.length,
+    items: summary,
+    note: "No transactions were fetched. Raw responses stored in public.pluggy_raw.",
+  });
+});

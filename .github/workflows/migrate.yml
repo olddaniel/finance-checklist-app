@@ -9,6 +9,7 @@ on:
       - main
     paths:
       - 'supabase/migrations/**'
+      - 'supabase/functions/**'
       - '.github/workflows/migrate.yml'
   workflow_dispatch: # allow manual trigger from GitHub UI
 
@@ -53,3 +54,21 @@ jobs:
             echo "::error::No Supabase credentials found. Add either SUPABASE_DB_URL, or both SUPABASE_ACCESS_TOKEN and SUPABASE_DB_PASSWORD, under Settings → Secrets and variables → Actions."
             exit 1
           fi
+
+      # Function secrets (Pluggy credentials) are set in the dashboard, never here.
+      - name: Deploy edge functions
+        if: ${{ hashFiles('supabase/functions/**') != '' }}
+        env:
+          SUPABASE_PROJECT_REF: nvclbavggphskqvpwylm
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_ACCESS_TOKEN:-}" ]; then
+            echo "::warning::SUPABASE_ACCESS_TOKEN not set — skipping function deploy."
+            exit 0
+          fi
+          for dir in supabase/functions/*/; do
+            name=$(basename "$dir")
+            echo "Deploying $name"
+            supabase functions deploy "$name" --project-ref "$SUPABASE_PROJECT_REF"
+          done
