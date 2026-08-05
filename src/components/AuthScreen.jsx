@@ -14,7 +14,20 @@ function friendlyError(message = "") {
   return message || "Não foi possível continuar.";
 }
 
+// `off` shows the struck-through eye, i.e. the password is currently visible
+function EyeIcon({ off }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7z"
+        stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.8" />
+      {off && <path d="M3 21L21 3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />}
+    </svg>
+  );
+}
+
 export default function AuthScreen({ onExportLocal, hasLocalData }) {
+  const [showPassword, setShowPassword] = useState(false);
   const [mode, setMode]         = useState("signin"); // signin | signup
   const [email, setEmail]       = useState("");
   const [password, setPassword] = useState("");
@@ -69,15 +82,28 @@ export default function AuthScreen({ onExportLocal, hasLocalData }) {
 
         <label className="auth-field">
           <span>Senha</span>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoComplete={isSignup ? "new-password" : "current-password"}
-            // Only a signup constraint — on sign-in, let the server answer
-            minLength={isSignup ? 6 : undefined}
-            required
-          />
+          <span className="auth-input-wrap">
+            <input
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete={isSignup ? "new-password" : "current-password"}
+              // Only a signup constraint — on sign-in, let the server answer
+              minLength={isSignup ? 6 : undefined}
+              required
+            />
+            <button
+              type="button"
+              className="auth-reveal"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+              aria-pressed={showPassword}
+              // Keeps the toggle out of the tab order between the field and submit
+              tabIndex={-1}
+            >
+              <EyeIcon off={showPassword} />
+            </button>
+          </span>
         </label>
 
         {error  && <p className="auth-error">{error}</p>}

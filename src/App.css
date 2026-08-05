@@ -1473,6 +1473,37 @@
   }
 }
 
+/* Password field + reveal toggle */
+.auth-input-wrap {
+  position: relative;
+  display: block;
+
+  /* Room for the toggle, so long passwords don't run under it */
+  & input { width: 100%; padding-right: 40px; }
+}
+
+.auth-reveal {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+
+  &:hover { color: var(--text); background: var(--surface); }
+  &[aria-pressed="true"] { color: var(--accent); }
+}
+
 .auth-error  { margin: 0; font-size: 12px; line-height: 1.4; color: var(--red); }
 .auth-notice { margin: 0; font-size: 12px; line-height: 1.4; color: var(--green); }
 
