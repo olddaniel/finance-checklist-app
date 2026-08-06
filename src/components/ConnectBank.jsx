@@ -2,6 +2,18 @@ import { useState, useCallback } from "react";
 import { PluggyConnect } from "react-pluggy-connect";
 import { supabase, SUPABASE_URL } from "../lib/supabase";
 
+// Errors arrive in several shapes — a string, a nested object, an HTML page from
+// a function that failed to boot. Render something readable for all of them
+// rather than letting String(object) produce "[object Object]".
+function describe(value) {
+  if (value == null) return "erro desconhecido";
+  if (typeof value === "string") return value;
+  if (typeof value.detail === "string") return value.detail;
+  if (typeof value.error === "string") return value.error;
+  if (typeof value.message === "string") return value.message;
+  try { return JSON.stringify(value).slice(0, 300); } catch { return String(value); }
+}
+
 // Opens Pluggy Connect and records whatever item it creates.
 //
 // Pluggy has no endpoint to list your items, so the id returned here is the only
@@ -22,12 +34,18 @@ export default function ConnectBank({ onConnected }) {
         method: "POST",
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.detail ?? body.error ?? "Falha ao obter token");
+      // Read as text first: a function that fails to boot answers with HTML or a
+      // plain string, and .json() would throw away the only useful diagnostic.
+      const raw = await res.text();
+      let body;
+      try { body = JSON.parse(raw); } catch { body = { raw: raw.slice(0, 300) }; }
+
+      if (!res.ok) throw new Error(`HTTP ${res.status} · ${describe(body)}`);
+      if (!body.accessToken) throw new Error(`Sem accessToken na resposta · ${describe(body)}`);
 
       setToken(body.accessToken);
     } catch (e) {
-      setError(e.message);
+      setError(typeof e?.message === "string" ? e.message : describe(e));
     } finally {
       setBusy(false);
     }
@@ -62,7 +80,7 @@ export default function ConnectBank({ onConnected }) {
           connectToken={token}
           includeSandbox={false}
           onSuccess={handleSuccess}
-          onError={(e) => { setToken(null); setError(e?.message ?? "Erro no Pluggy Connect"); }}
+          onError={(e) => { setToken(null); setError(describe(e)); }}
           onClose={() => setToken(null)}
         />
       )}
