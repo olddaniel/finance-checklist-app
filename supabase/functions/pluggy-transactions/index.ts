@@ -101,10 +101,12 @@ Deno.serve(async (req) => {
     for (const account of targets) {
       const pages: any[] = [];
       let pageCount = 0;
-      let path = `/transactions?accountId=${account.id}&from=${isoDay(from)}&to=${isoDay(to)}&pageSize=${full ? 500 : 20}`;
+      // v2 only: /transactions was retired and answers 410 ENDPOINT_DEPRECATED.
+      const base = `/v2/transactions?accountId=${account.id}&from=${isoDay(from)}&to=${isoDay(to)}&pageSize=${full ? 500 : 20}`;
+      let path = base;
 
-      // Follow whichever pagination style the API answers with. Bounded so a
-      // misread contract cannot loop away the rate limit.
+      // v2 is cursor-paginated. Bounded so a misread contract cannot loop away
+      // the rate limit.
       while (path && pageCount < (full ? 60 : 1)) {
         const r = await call(path, apiKey);
         pageCount++;
@@ -114,16 +116,17 @@ Deno.serve(async (req) => {
         const page = r.body;
         const batch: any[] = page.results ?? page.data ?? (Array.isArray(page) ? page : []);
         allTx.push(...batch);
-        pages.push({ count: batch.length, keys: Object.keys(page) });
+        pages.push({
+          count: batch.length,
+          keys: Object.keys(page),
+          cursorSeen: page.nextCursor ?? page.cursor ?? page.meta?.nextCursor ?? null,
+        });
 
         if (!full) break;
-        const nextCursor = page.nextCursor ?? page.cursor ?? null;
-        const hasMorePages = page.page && page.totalPages && page.page < page.totalPages;
-        path = nextCursor
-          ? `/transactions?accountId=${account.id}&from=${isoDay(from)}&to=${isoDay(to)}&pageSize=500&cursor=${nextCursor}`
-          : hasMorePages
-            ? `/transactions?accountId=${account.id}&from=${isoDay(from)}&to=${isoDay(to)}&pageSize=500&page=${page.page + 1}`
-            : "";
+        // Cursor field name is not something I could confirm from the docs, so
+        // accept the plausible spellings rather than silently stopping at page 1.
+        const nextCursor = page.nextCursor ?? page.cursor ?? page.meta?.nextCursor ?? null;
+        path = nextCursor ? `${base}&cursor=${encodeURIComponent(nextCursor)}` : "";
       }
 
       results.push({
