@@ -9,6 +9,9 @@
   interrupted, resume it — never restart the answer from scratch.
 - No step-by-step progress reports on long-running work. Validate genuine ambiguities
   as they appear, then deliver one consolidated result.
+- **Daniel is not a developer.** When code has to be pasted by hand, give the
+  **entire file** to select-all-and-replace — never a fragment to locate and splice
+  into existing code. Name the exact screen and button to click.
 - Copy in the app is **pt-BR**.
 
 ## Git
