@@ -69,6 +69,12 @@ jobs:
           fi
           for dir in supabase/functions/*/; do
             name=$(basename "$dir")
-            echo "Deploying $name"
-            supabase functions deploy "$name" --project-ref "$SUPABASE_PROJECT_REF"
+            # Pluggy cannot present a Supabase JWT, so its webhook endpoint has
+            # verification off and authenticates with a shared secret instead.
+            case "$name" in
+              pluggy-webhook) flags="--no-verify-jwt" ;;
+              *)              flags="" ;;
+            esac
+            echo "Deploying $name $flags"
+            supabase functions deploy "$name" --project-ref "$SUPABASE_PROJECT_REF" $flags
           done

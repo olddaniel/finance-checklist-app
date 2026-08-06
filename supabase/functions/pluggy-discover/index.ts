@@ -54,24 +54,27 @@ Deno.serve(async () => {
   }
   const apiKey = authBody.apiKey as string;
 
-  // ── 2. Items. The listing endpoint is the one shape I could not verify from
-  // the docs, so try the likely candidates and report whichever answers. ──
-  const attempts: Record<string, unknown> = {};
-  let items: any[] | null = null;
-
-  for (const path of ["/items", "/items?pageSize=100", "/connectors/200/items"]) {
-    const r = await call(path, apiKey);
-    attempts[path] = { status: r.status, sample: r.ok ? undefined : r.body };
-    if (r.ok) {
-      const b = r.body as any;
-      items = Array.isArray(b) ? b : (b.results ?? b.items ?? null);
-      if (items) { await store("items", b); break; }
-    }
+  // ── 2. Items. Pluggy has no listing endpoint, so the ids come from our own
+  // table, populated by the Connect widget. ──
+  const { data: rows, error: rowsError } = await db.from("pluggy_items").select("item_id");
+  if (rowsError) {
+    await store("error", { step: "pluggy_items", message: rowsError.message });
+    return Response.json({ step: "pluggy_items", error: rowsError.message }, { status: 500 });
+  }
+  if (!rows?.length) {
+    return Response.json({
+      ok: true,
+      itemCount: 0,
+      message: "No items recorded yet. Connect a bank in the app first (Dados → Conectar banco).",
+    });
   }
 
-  if (!items) {
-    await store("error", { step: "items", attempts });
-    return Response.json({ step: "items", message: "no item listing endpoint answered", attempts }, { status: 502 });
+  const items: any[] = [];
+  for (const { item_id } of rows) {
+    const r = await call(`/items/${item_id}`, apiKey);
+    await store(r.ok ? "items" : "error", r.body, { itemId: item_id });
+    if (r.ok) items.push(r.body);
+    else items.push({ id: item_id, error: r.body, status: `HTTP ${r.status}` });
   }
 
   // ── 3. Accounts per item ──

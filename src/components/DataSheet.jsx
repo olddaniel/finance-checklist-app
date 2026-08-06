@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import ConnectBank from "./ConnectBank";
 
 // A backup is anything that parses as JSON and carries a groups array — that
 // covers files this app exported and raw localStorage blobs copied by hand.
@@ -90,6 +91,7 @@ export default function DataSheet({ groupCount, itemCount, onClose, onExport, on
                  account.status === "error"  ? "erro ao salvar" : "sincronizado"}
               </span>
             </div>
+            <ConnectBank onConnected={account.onBankConnected} />
             <button className="sheet-btn" onClick={account.onSignOut} type="button">
               Sair
             </button>
