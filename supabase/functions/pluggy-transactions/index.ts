@@ -101,12 +101,14 @@ Deno.serve(async (req) => {
     for (const account of targets) {
       const pages: any[] = [];
       let pageCount = 0;
-      // v2 only: /transactions was retired and answers 410 ENDPOINT_DEPRECATED.
-      const base = `/v2/transactions?accountId=${account.id}&from=${isoDay(from)}&to=${isoDay(to)}&pageSize=${full ? 500 : 20}`;
+      // v2 only: /transactions was retired (410). v2 also validates strictly and
+      // rejects from/to/pageSize, so send accountId alone and let the cursor
+      // walk backwards through history — the window is enforced below, on dates
+      // we read from the results rather than on parameters the API may not take.
+      const base = `/v2/transactions?accountId=${account.id}`;
       let path = base;
 
-      // v2 is cursor-paginated. Bounded so a misread contract cannot loop away
-      // the rate limit.
+      // Bounded so a misread contract cannot loop away the rate limit.
       while (path && pageCount < (full ? 60 : 1)) {
         const r = await call(path, apiKey);
         pageCount++;
@@ -123,8 +125,16 @@ Deno.serve(async (req) => {
         });
 
         if (!full) break;
-        // Cursor field name is not something I could confirm from the docs, so
-        // accept the plausible spellings rather than silently stopping at page 1.
+
+        // Stop once a page is entirely older than the window we want
+        const oldest = batch.reduce((min: string | null, tx: any) => {
+          const d = String(tx.date ?? tx.createdAt ?? "").slice(0, 10);
+          return d && (!min || d < min) ? d : min;
+        }, null);
+        if (oldest && oldest < isoDay(from)) break;
+
+        // Cursor field name is not something the docs would confirm, so accept
+        // the plausible spellings rather than silently stopping at page 1.
         const nextCursor = page.nextCursor ?? page.cursor ?? page.meta?.nextCursor ?? null;
         path = nextCursor ? `${base}&cursor=${encodeURIComponent(nextCursor)}` : "";
       }
