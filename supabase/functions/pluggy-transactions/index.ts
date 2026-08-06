@@ -1,14 +1,13 @@
 // Pulls transactions for every recorded item.
 //
-// Two modes, because the 12-month historical search is capped at 4 per month per
-// institution and is therefore effectively one-shot:
+//   ?mode=probe (default)      — two pages, one account. Cheap; proves the cursor.
+//   ?mode=probe&accountId=XYZ  — probe one specific account.
+//   ?mode=full                 — 12 months, every account, every page. Spend once.
 //
-//   ?mode=probe (default) — last 7 days, one page, one account. Cheap, and it
-//                           reveals the real response and pagination shape.
-//   ?mode=full            — 12 months, every account, every page. Spend once.
-//
-// Every page is written to pluggy_raw before anything reads it. If the parsing
-// is wrong we fix the parser and re-read the table instead of paying again.
+// The two modes exist because the 12-month historical search is capped at 4 per
+// month per institution and is therefore effectively one-shot. Every page is
+// written to pluggy_raw before anything reads it: if the parsing is wrong we fix
+// the parser and re-read the table instead of paying again.
 
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
@@ -36,6 +35,13 @@ async function call(path: string, apiKey: string) {
 
 const isoDay = (d: Date) => d.toISOString().slice(0, 10);
 
+// Card descriptors are fixed-width: merchant, then city, then country.
+// "PANIFICADORA BELA VIST CAMPINAS      BRA" -> "PANIFICADORA BELA VIST"
+function guessMerchant(desc: string) {
+  const head = desc.slice(0, 22).trim();
+  return head.length >= 3 ? head.toUpperCase() : null;
+}
+
 // What fraction of transactions could get a clean merchant name, and from where.
 // This is the number that decides whether categorisation can beat the current
 // tool — measured on real data rather than assumed.
@@ -47,19 +53,29 @@ function tally(txs: any[]) {
     withCategory: 0, credits: 0, debits: 0,
   };
   const unresolved: string[] = [];
+  const guessed = new Map<string, number>();
   for (const tx of txs) {
     if (tx.merchant?.name) t.merchantName++;
     else if (tx.merchant?.businessName) t.merchantBusinessName++;
     else if (tx.paymentData?.receiver?.name || tx.paymentData?.payer?.name) t.pixCounterparty++;
     else {
       t.descriptionOnly++;
-      if (unresolved.length < 40) unresolved.push(String(tx.descriptionRaw ?? tx.description ?? "").slice(0, 60));
+      const raw = String(tx.descriptionRaw ?? tx.description ?? "");
+      if (unresolved.length < 40) unresolved.push(raw.slice(0, 60));
+      const g = guessMerchant(raw);
+      if (g) guessed.set(g, (guessed.get(g) ?? 0) + 1);
     }
     if (tx.merchant?.cnpj) t.cnpj++;
     if (tx.category) t.withCategory++;
     if (Number(tx.amount) > 0) t.credits++; else t.debits++;
   }
-  return { ...t, unresolvedSamples: unresolved };
+  const top = [...guessed.entries()].sort((a, b) => b[1] - a[1]).slice(0, 25);
+  return {
+    ...t,
+    unresolvedSamples: unresolved,
+    distinctGuessedMerchants: guessed.size,
+    topGuessedMerchants: top.map(([name, n]) => `${n}x ${name}`),
+  };
 }
 
 Deno.serve(async (req) => {
@@ -113,11 +129,10 @@ Deno.serve(async (req) => {
       // rejects from/to/pageSize, so send accountId alone and let the cursor
       // walk backwards through history — the window is enforced below, on dates
       // we read from the results rather than on parameters the API may not take.
-      const base = `/v2/transactions?accountId=${account.id}`;
-      let path = base;
+      let path = `/v2/transactions?accountId=${account.id}`;
 
       // Bounded so a misread contract cannot loop away the rate limit.
-      while (path && pageCount < (full ? 60 : 1)) {
+      while (path && pageCount < (full ? 60 : 2)) {
         const r = await call(path, apiKey);
         pageCount++;
         await store(r.ok ? "transactions" : "error", r.body, { itemId: item_id, accountId: account.id });
@@ -126,30 +141,30 @@ Deno.serve(async (req) => {
         const page = r.body;
         const batch: any[] = page.results ?? page.data ?? (Array.isArray(page) ? page : []);
         allTx.push(...batch);
-        pages.push({
-          count: batch.length,
-          keys: Object.keys(page),
-          next: page.next ?? null,
-        });
+        pages.push({ count: batch.length, next: page.next ?? null });
 
-        if (!full) break;
+        // Only the full pull walks back to a date boundary; the probe just takes
+        // two pages, which is enough to prove the cursor works.
+        if (full) {
+          const oldest = batch.reduce((min: string | null, tx: any) => {
+            const d = String(tx.date ?? tx.createdAt ?? "").slice(0, 10);
+            return d && (!min || d < min) ? d : min;
+          }, null);
+          if (oldest && oldest < isoDay(from)) break;
+        }
 
-        // Stop once a page is entirely older than the window we want
-        const oldest = batch.reduce((min: string | null, tx: any) => {
-          const d = String(tx.date ?? tx.createdAt ?? "").slice(0, 10);
-          return d && (!min || d < min) ? d : min;
-        }, null);
-        if (oldest && oldest < isoDay(from)) break;
-
-        // v2 paginates with `next` — confirmed from a probe response, where every
-        // spelling I had guessed came back null and the full pull would have
-        // stopped silently after one page.
-        const next = page.next ?? null;
+        // `next` is a relative query string using `after`, e.g.
+        // "?accountId=...&after=..." — append it to the v2 path as-is. Every
+        // spelling I had guessed for a cursor field came back null; this is the
+        // real one, confirmed from a probe response.
+        const next = page.next ? String(page.next) : "";
         path = !next
           ? ""
-          : String(next).startsWith("http")
-            ? String(next).replace(PLUGGY, "")   // absolute URL
-            : `${base}&cursor=${encodeURIComponent(String(next))}`;
+          : next.startsWith("?")
+            ? `/v2/transactions${next}`
+            : next.startsWith("http")
+              ? next.replace(PLUGGY, "")
+              : `/v2/transactions?accountId=${account.id}&after=${encodeURIComponent(next)}`;
       }
 
       results.push({
@@ -157,6 +172,7 @@ Deno.serve(async (req) => {
         accountId: account.id,
         accountType: account.type,
         accountName: account.name,
+        pagesFetched: pages.length,
         pages,
       });
     }
@@ -168,9 +184,6 @@ Deno.serve(async (req) => {
     window: { from: isoDay(from), to: isoDay(to) },
     accountsQueried: results.length,
     resolution: tally(allTx),
-    // Probe mode returns one anonymised example so the field layout is visible
-    // without putting a real amount in the response.
-    sampleShape: !full && allTx[0] ? Object.keys(allTx[0]) : undefined,
     results,
     note: "Raw pages stored in public.pluggy_raw (kind='transactions').",
   });
