@@ -55,7 +55,7 @@ Deno.serve(async () => {
   const apiKey = authBody.apiKey as string;
 
   // ── 2. Items. Pluggy has no listing endpoint, so the ids come from our own
-  // table, populated by the Connect widget. ──
+  // table, populated from Meu Pluggy's "Acesse seus dados via API" page. ──
   const { data: rows, error: rowsError } = await db.from("pluggy_items").select("item_id");
   if (rowsError) {
     await store("error", { step: "pluggy_items", message: rowsError.message });
@@ -65,7 +65,7 @@ Deno.serve(async () => {
     return Response.json({
       ok: true,
       itemCount: 0,
-      message: "No items recorded yet. Connect a bank in the app first (Dados → Conectar banco).",
+      message: "No items recorded yet. Add your Meu Pluggy item ids in the app (Dados → Conexões Meu Pluggy).",
     });
   }
 
