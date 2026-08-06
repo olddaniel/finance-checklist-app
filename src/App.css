@@ -1673,3 +1673,74 @@
   line-height: 1.45;
   color: var(--yellow);
 }
+
+/* ── Meu Pluggy connections ── */
+.pluggy-connections {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+.pluggy-item-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  & li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    background: var(--surface-hover);
+    border-radius: var(--radius-sm);
+    padding: 5px 6px 5px 8px;
+  }
+
+  & code {
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    flex: 1;
+    min-width: 0;
+  }
+
+  & button {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0 2px;
+    flex-shrink: 0;
+
+    &:hover { color: var(--red); }
+  }
+}
+
+.pluggy-item-connector { color: var(--text-muted); flex-shrink: 0; }
+
+.pluggy-add-row {
+  display: flex;
+  gap: 6px;
+
+  & .sheet-btn { width: auto; flex-shrink: 0; }
+}
+
+.pluggy-item-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 12px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  padding: 8px 9px;
+
+  &:focus { outline: none; border-color: var(--accent); }
+  &::placeholder { color: var(--text-muted); font-family: inherit; }
+}

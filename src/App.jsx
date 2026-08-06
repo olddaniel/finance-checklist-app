@@ -98,7 +98,6 @@ function CloudApp() {
     status: error ? "error" : cloud.status,
     onSignOut: () => supabase.auth.signOut(),
     onRetry: () => { setError(null); cloud.reload(); },
-    onBankConnected: (item) => setError(`Banco conectado: ${item.connector?.name ?? item.id}`),
   };
 
   const store = {
