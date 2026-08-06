@@ -78,7 +78,13 @@ export default function ConnectBank({ onConnected }) {
       {token && (
         <PluggyConnect
           connectToken={token}
-          includeSandbox={false}
+          // Connector 200 is the MeuPluggy proxy: it exposes the banks already
+          // connected at meu.pluggy.ai, which is the free personal-use path.
+          // Connecting a real bank directly is the commercial track and is gated
+          // behind production access, so target 200 and nothing else.
+          connectorIds={[200]}
+          // 200 is not an ordinary production connector; excluding sandbox hides it
+          includeSandbox={true}
           onSuccess={handleSuccess}
           onError={(e) => { setToken(null); setError(describe(e)); }}
           onClose={() => setToken(null)}
