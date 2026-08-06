@@ -121,7 +121,7 @@ Deno.serve(async (req) => {
         pages.push({
           count: batch.length,
           keys: Object.keys(page),
-          cursorSeen: page.nextCursor ?? page.cursor ?? page.meta?.nextCursor ?? null,
+          next: page.next ?? null,
         });
 
         if (!full) break;
@@ -133,10 +133,15 @@ Deno.serve(async (req) => {
         }, null);
         if (oldest && oldest < isoDay(from)) break;
 
-        // Cursor field name is not something the docs would confirm, so accept
-        // the plausible spellings rather than silently stopping at page 1.
-        const nextCursor = page.nextCursor ?? page.cursor ?? page.meta?.nextCursor ?? null;
-        path = nextCursor ? `${base}&cursor=${encodeURIComponent(nextCursor)}` : "";
+        // v2 paginates with `next` — confirmed from a probe response, where every
+        // spelling I had guessed came back null and the full pull would have
+        // stopped silently after one page.
+        const next = page.next ?? null;
+        path = !next
+          ? ""
+          : String(next).startsWith("http")
+            ? String(next).replace(PLUGGY, "")   // absolute URL
+            : `${base}&cursor=${encodeURIComponent(String(next))}`;
       }
 
       results.push({
