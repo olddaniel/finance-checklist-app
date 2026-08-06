@@ -63,8 +63,12 @@ function tally(txs: any[]) {
 }
 
 Deno.serve(async (req) => {
-  const mode = new URL(req.url).searchParams.get("mode") ?? "probe";
+  const url = new URL(req.url);
+  const mode = url.searchParams.get("mode") ?? "probe";
   const full = mode === "full";
+  // Probe a specific account — the default picks the first per connection, which
+  // is always a checking account, and cards are where the messy descriptors are.
+  const onlyAccountId = url.searchParams.get("accountId");
 
   const clientId = Deno.env.get("PLUGGY_CLIENT_ID");
   const clientSecret = Deno.env.get("PLUGGY_CLIENT_SECRET");
@@ -96,7 +100,11 @@ Deno.serve(async (req) => {
     const accRes = await call(`/accounts?itemId=${item_id}`, apiKey);
     const accounts: any[] = accRes.ok ? (accRes.body.results ?? accRes.body ?? []) : [];
     // In probe mode one account is enough to learn the contract
-    const targets = full ? accounts : accounts.slice(0, 1);
+    const targets = full
+      ? accounts
+      : onlyAccountId
+        ? accounts.filter((a) => a.id === onlyAccountId)
+        : accounts.slice(0, 1);
 
     for (const account of targets) {
       const pages: any[] = [];
