@@ -4,6 +4,7 @@ import ItemDetailModal from "./components/ItemDetailModal";
 import DataSheet from "./components/DataSheet";
 import ShortcutSheet from "./components/ShortcutSheet";
 import Toast from "./components/Toast";
+import { hintFor } from "./lib/shortcutHints";
 import { kindOf, displayItemsOf, REVENUE } from "./utils";
 import "./App.css";
 
@@ -54,14 +55,17 @@ function AppShell({ store, account }) {
   const [newGroupDateMode, setNewGroupDateMode] = useState("none");
 
   // ── Toast ──
-  const [toast, setToast]      = useState({ visible: false, message: "", undoFn: null });
+  const [toast, setToast]      = useState({ visible: false, message: "", undoFn: null, hint: null });
   const [toastKey, setToastKey] = useState(0);
   const toastTimeout = useRef(null);
 
-  function showToast(message, undoFn) {
+  // `action` names the shortcut this toast can teach. Callers pass it only from
+  // paths where the key really works — the same toast raised from an open modal
+  // would be advertising a key that sheet swallows.
+  function showToast(message, undoFn, action) {
     clearTimeout(toastTimeout.current);
     setToastKey((k) => k + 1);
-    setToast({ visible: true, message, undoFn });
+    setToast({ visible: true, message, undoFn, hint: hintFor(action) });
     toastTimeout.current = setTimeout(() => {
       setToast((t) => ({ ...t, visible: false }));
     }, TOAST_DURATION);
@@ -179,13 +183,13 @@ function AppShell({ store, account }) {
     if (item) showToast(`"${item.label}" removida`, () => restoreItem(groupId, index, item, value, date, kind));
   }
 
-  function handleToggle(itemId) {
+  function handleToggle(itemId, action) {
     const wasChecked = !!checked[itemId];
     toggle(itemId);
     if (!wasChecked) {
       const found = findItem(itemId);
       const done  = kindOf(kinds, itemId) === REVENUE ? "recebida" : "paga";
-      showToast(`"${found?.item.label ?? "Conta"}" ${done}`, () => toggle(itemId));
+      showToast(`"${found?.item.label ?? "Conta"}" ${done}`, () => toggle(itemId), action);
     }
   }
 
@@ -267,7 +271,7 @@ function AppShell({ store, account }) {
       return;
     }
 
-    if (e.key === " ")     { if (current) { e.preventDefault(); handleToggle(current.itemId); } return; }
+    if (e.key === " ")     { if (current) { e.preventDefault(); handleToggle(current.itemId, "toggle"); } return; }
     if (e.key === "Enter") { if (current) { e.preventDefault(); setDetailItemId(current.itemId); } return; }
     if (e.key === "?")     { e.preventDefault(); setShortcutsOpen(true); }
   }
@@ -327,7 +331,7 @@ function AppShell({ store, account }) {
   function groupProps(group) {
     return {
       group,
-      checked, onToggle: (id) => handleToggle(id),
+      checked, onToggle: (id) => handleToggle(id, "toggle"),
       snoozed, onToggleSnooze: (id) => handleToggleSnooze(id),
       onReset: () => resetGroup(group.id),
       values, onValueChange: setItemValue,
@@ -535,6 +539,7 @@ function AppShell({ store, account }) {
         message={toast.message}
         onUndo={handleUndoToast}
         canUndo={!!toast.undoFn}
+        hint={toast.hint}
         visible={toast.visible}
         toastKey={toastKey}
       />
