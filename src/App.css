@@ -296,6 +296,16 @@
   }
 }
 
+/* Shortcut sheet opener — pointless where there are no keys to press */
+.shortcuts-btn {
+  display: none;
+  font-size: 12px;
+  padding: 4px 8px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .shortcuts-btn { display: flex; }
+}
+
 /* ── Progress badge (collapse toggle) ── */
 .progress-badge {
   display: inline-flex;
@@ -760,8 +770,22 @@
   padding: 11px 14px;
   background: var(--surface);
   transition: background 0.1s;
+  /* Vertical panning stays the browser's; the horizontal swipe is ours, so it
+     never gets cancelled halfway into a scroll guess. */
+  touch-action: pan-y;
 
   &:hover { background: var(--surface-hover); }
+  /* The ring is drawn from the focus cursor below, not by the UA */
+  &:focus { outline: none; }
+}
+
+/* ── Keyboard focus cursor ── */
+/* An outline rather than a fill: the row background is already carrying checked,
+   snoozed and revenue states, and the ring has to stay readable over all of them. */
+.item-outer.item-focused .item {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  background: var(--surface-hover);
 }
 
 .item-checkbox {
@@ -1854,4 +1878,55 @@
 
   &:focus { outline: none; border-color: var(--accent); }
   &::placeholder { color: var(--text-muted); font-family: inherit; }
+}
+
+/* ── Shortcut reference sheet ── */
+.shortcuts-card { max-width: 380px; }
+
+.shortcuts-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.shortcut-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Fixed width so the descriptions line up whatever the key combination is */
+.shortcut-keys {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  width: 128px;
+}
+
+.shortcut-keys kbd {
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--text);
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-sm);
+  padding: 4px 6px;
+}
+
+.shortcut-or {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.shortcut-label {
+  font-size: 13px;
+  color: var(--text);
+  min-width: 0;
 }

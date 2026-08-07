@@ -48,3 +48,20 @@ export const REVENUE = "revenue";
 export function kindOf(kinds, itemId) {
   return kinds?.[itemId] === REVENUE ? REVENUE : EXPENSE;
 }
+
+// The rows a group puts on screen, in the order they appear there. Shared by the
+// group card and by the keyboard cursor: if the two computed the order
+// separately, ↓ would eventually land somewhere other than the next visible row.
+export function displayItemsOf(group, { viewState, sortMode, values, dates, checked, snoozed }) {
+  let items = group.items;
+  if (sortMode === "value") {
+    items = [...items].sort((a, b) => (values[b.id] || 0) - (values[a.id] || 0));
+  } else if (sortMode === "date") {
+    items = [...items].sort((a, b) => (dates[a.id] ?? 999) - (dates[b.id] ?? 999));
+  }
+  // "semi" shows only what is still outstanding
+  if (viewState === "semi") {
+    items = items.filter((i) => !checked[i.id] && !snoozed[i.id]);
+  }
+  return items;
+}

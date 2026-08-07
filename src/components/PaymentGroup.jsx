@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import CheckboxItem from "./CheckboxItem";
 import GroupBalanceTimeline from "./GroupBalanceTimeline";
-import { formatBRL, formatBRLAlways, formatBRLSigned, kindOf, REVENUE } from "../utils";
+import { formatBRL, formatBRLAlways, formatBRLSigned, kindOf, displayItemsOf, REVENUE } from "../utils";
 
 function formatDate(iso) {
   if (!iso) return null;
@@ -64,6 +64,7 @@ export default function PaymentGroup({
   groupRef,
   onDragStart,
   isDragging,
+  focusItemId = null,
 }) {
   const [confirmReset, setConfirmReset] = useState(false);
   const [adding, setAdding]             = useState(false);
@@ -120,21 +121,11 @@ export default function PaymentGroup({
   const isOpen    = viewState === "open";
   const isBalance = viewState === "balance";
 
-  // Sorted items
-  const sortedItems = useMemo(() => {
-    if (sortMode === "value") {
-      return [...group.items].sort((a, b) => (values[b.id] || 0) - (values[a.id] || 0));
-    }
-    if (sortMode === "date") {
-      return [...group.items].sort((a, b) => (dates[a.id] ?? 999) - (dates[b.id] ?? 999));
-    }
-    return group.items;
-  }, [group.items, sortMode, values, dates]);
-
-  // In semi mode only show unchecked + un-snoozed items
-  const displayItems = isSemi
-    ? sortedItems.filter((item) => !checked[item.id] && !snoozed[item.id])
-    : sortedItems;
+  // Sorted, and filtered down to the outstanding rows in semi mode
+  const displayItems = useMemo(
+    () => displayItemsOf(group, { viewState, sortMode, values, dates, checked, snoozed }),
+    [group, viewState, sortMode, values, dates, checked, snoozed]
+  );
 
   const total   = group.items.length;
   // snoozed counts as "handled" for the progress badge
@@ -414,6 +405,7 @@ export default function PaymentGroup({
               onOpenDetails={() => onOpenDetails(item.id)}
               onRemove={() => onRemoveItem(item.id)}
               onRename={(newLabel) => onRenameItem(item.id, newLabel)}
+              focused={item.id === focusItemId}
             />
           ))}
 

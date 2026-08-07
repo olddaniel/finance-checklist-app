@@ -276,6 +276,22 @@ export function usePayments() {
     if (kind  !== undefined) setKinds ((prev) => ({ ...prev, [item.id]: kind  }));
   }, []);
 
+  // Move one item one slot up or down inside its group. Out-of-range is a no-op
+  // rather than a wrap, so holding the key at either end does nothing.
+  const moveItem = useCallback((groupId, itemId, delta) => {
+    setGroups((prev) =>
+      prev.map((g) => {
+        if (g.id !== groupId) return g;
+        const from = g.items.findIndex((i) => i.id === itemId);
+        const to   = from + delta;
+        if (from === -1 || to < 0 || to >= g.items.length) return g;
+        const items = [...g.items];
+        items.splice(to, 0, items.splice(from, 1)[0]);
+        return { ...g, items };
+      })
+    );
+  }, []);
+
   const renameItem = useCallback((groupId, itemId, newLabel) => {
     setGroups((prev) =>
       prev.map((g) =>
@@ -363,7 +379,7 @@ export function usePayments() {
     actualDates, setItemActualDate,
     lastResets, resetGroup,
     openingBalances, setGroupOpeningBalance,
-    addItem, removeItem, restoreItem, renameItem,
+    addItem, removeItem, restoreItem, renameItem, moveItem,
     sortMode, setSortMode,
     collapsedGroups, toggleGroupCollapsed, collapseAllGroups,
     addGroup, removeGroup, renameGroup, changeGroupDateMode, applyGroupOrder,
