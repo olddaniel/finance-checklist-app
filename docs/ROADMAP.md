@@ -201,6 +201,35 @@ With both flags, whether Reservas is conceptually a separate pot stops affecting
 correctness — it only decides whether the reserve appears as its own balance on the
 daily screen or only inside Patrimônio, which is a display choice.
 
+### Three tracks, not one running total
+
+The two flags make the month decomposable, but not into a single enriched line.
+Spending and cash are different axes, because a card purchase is consumption that has
+happened with no money yet leaving the account. Subtracting spending from a checking
+balance is wrong by the whole open fatura.
+
+| Track | Composition |
+|---|---|
+| **Caixa** | opening + received − paid out − net invested → projected close |
+| **Gastos** | already spent + still expected, regardless of when the cash moves |
+| **Investido** | reported balance, with contributions / withdrawals / rendimento explaining the change |
+
+Two details that are easy to get wrong:
+
+- **Investments grow without a cash event.** `Y_end ≠ Y_start + aplicações −
+  resgates`; rendimento never appears as a transaction. The invested figure comes
+  from the reported balance, and flows only *explain* the change — *"subiu R$2.780:
+  aplicou R$1.800 e rendeu R$980."*
+- **Contributions and withdrawals both happen every month.** The porquinho alone ran
+  108 aplicações and 115 resgates in twelve months. Show the net; keep gross one tap
+  away, or an automatic sweep reads as tens of thousands of activity.
+
+What the three tracks exist to produce is two sentences:
+
+> *Dá pra investir R$4.400 no dia 30.*
+>
+> *No dia 23 você fica em R$-410 — resgate R$1.000 até o dia 21.*
+
 ## Propose, don't ask
 
 Three unrelated products converge on one idea, and it is the difference between this
