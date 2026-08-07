@@ -19,7 +19,7 @@ function formatResetDate(iso) {
  * group totals; values still count while unchecked, since this is a forecast.
  */
 export default function GroupBalanceTimeline({
-  items, checked, snoozed, values, kinds, dates, dateMode,
+  items, checked, snoozed, values, actualValues = {}, kinds, dates, dateMode,
   openingBalance, onOpeningBalanceChange,
   lastReset,
 }) {
@@ -28,7 +28,9 @@ export default function GroupBalanceTimeline({
 
     for (const item of items) {
       if (snoozed[item.id]) continue;
-      const value = values[item.id] || 0;
+      // A realised amount is a fact and replaces the estimate; everything still
+      // ahead keeps its planned value, which is what makes this a forecast.
+      const value = actualValues[item.id] ?? values[item.id] ?? 0;
       if (!value) continue;
 
       const key = dates[item.id] ?? NO_DATE;
@@ -53,7 +55,7 @@ export default function GroupBalanceTimeline({
       rows,
       finalBalance: rows.length ? rows[rows.length - 1].balance : openingBalance,
     };
-  }, [items, checked, snoozed, values, kinds, dates, openingBalance]);
+  }, [items, checked, snoozed, values, actualValues, kinds, dates, openingBalance]);
 
   const resetDate = formatResetDate(lastReset);
 

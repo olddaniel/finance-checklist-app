@@ -145,11 +145,15 @@ export default function PaymentGroup({
   // snoozed items are excluded from the sums (they reduce the group total)
   const activeItems = group.items.filter((i) => !snoozed[i.id]);
 
+  // What was planned stays planned; what was executed counts the realised amount
+  // when there is one, so a bill that came in above its estimate says so instead
+  // of reporting the estimate back.
   const sumBy = (isRevenue, onlyExecuted) =>
     activeItems.reduce((s, i) => {
       if ((kindOf(kinds, i.id) === REVENUE) !== isRevenue) return s;
       if (onlyExecuted && !checked[i.id]) return s;
-      return s + (values[i.id] || 0);
+      const planned = values[i.id] || 0;
+      return s + (onlyExecuted ? actualValues[i.id] ?? planned : planned);
     }, 0);
 
   const plannedExpense  = sumBy(false, false);
@@ -378,6 +382,7 @@ export default function PaymentGroup({
             checked={checked}
             snoozed={snoozed}
             values={values}
+            actualValues={actualValues}
             kinds={kinds}
             dates={dates}
             dateMode={group.dateMode}
