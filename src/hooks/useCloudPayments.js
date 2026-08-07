@@ -21,6 +21,13 @@ function saveUi(collapsedGroups) {
   try { localStorage.setItem(UI_KEY, JSON.stringify(collapsedGroups)); } catch { /* quota */ }
 }
 
+// Group and item ids are only unique per owner — `monthly` and `comgas` exist in
+// every account — so the conflict target is the whole composite primary key.
+// PostgREST infers the same pair from the key, but naming it keeps the upsert
+// legible next to rows that carry no `user_id`: the column's `auth.uid()`
+// default supplies it, and the conflict is matched after defaults are applied.
+const ON_CONFLICT = { onConflict: "id,user_id" };
+
 function newId(prefix) {
   const rand = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}${Math.round(performance.now())}`;
   return `${prefix}${rand}`;
@@ -140,7 +147,7 @@ export function useCloudPayments(session, onError) {
       void gi;
       const index = group.items.findIndex((i) => i.id === itemId);
       if (index !== -1) {
-        return supabase.from("items").upsert(itemToRow(group.items[index], group.id, index, next));
+        return supabase.from("items").upsert(itemToRow(group.items[index], group.id, index, next), ON_CONFLICT);
       }
     }
     return Promise.resolve({ error: null });
@@ -150,7 +157,8 @@ export function useCloudPayments(session, onError) {
     const index = next.groups.findIndex((g) => g.id === groupId);
     if (index === -1) return Promise.resolve({ error: null });
     return supabase.from("groups").upsert(
-      groupToRow(next.groups[index], index, next.openingBalances[groupId], next.lastResets[groupId])
+      groupToRow(next.groups[index], index, next.openingBalances[groupId], next.lastResets[groupId]),
+      ON_CONFLICT
     );
   };
 
@@ -235,7 +243,8 @@ export function useCloudPayments(session, onError) {
       const group = next.groups.find((g) => g.id === groupId);
       if (!group) return Promise.resolve({ error: null });
       return supabase.from("items").upsert(
-        group.items.map((item, index) => itemToRow(item, groupId, index, next))
+        group.items.map((item, index) => itemToRow(item, groupId, index, next)),
+        ON_CONFLICT
       );
     },
     [itemId]
@@ -349,7 +358,8 @@ export function useCloudPayments(session, onError) {
       return { ...s, groups: ids.map((id) => byId[id]).filter(Boolean) };
     },
     (next) => supabase.from("groups").upsert(
-      next.groups.map((g, i) => groupToRow(g, i, next.openingBalances[g.id], next.lastResets[g.id]))
+      next.groups.map((g, i) => groupToRow(g, i, next.openingBalances[g.id], next.lastResets[g.id])),
+      ON_CONFLICT
     ),
     ids
   ), [commit]);

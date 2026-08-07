@@ -79,6 +79,21 @@ function tally(txs: any[]) {
 }
 
 Deno.serve(async (req) => {
+  // `?mode=full` spends one of the 4 historical calls per month per institution,
+  // which is not refundable and not backfillable. Supabase's verify_jwt accepts
+  // the anon key, and that key is hard-coded in the bundle of a public static
+  // site, so it establishes nothing about the caller — anyone reading the source
+  // could burn the year's history. Same check as pluggy-connect-token: there has
+  // to be a real signed-in user behind the key.
+  const authHeader = req.headers.get("Authorization") ?? "";
+  const caller = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_ANON_KEY")!,
+    { global: { headers: { Authorization: authHeader } } },
+  );
+  const { data: { user }, error: authError } = await caller.auth.getUser();
+  if (authError || !user) return Response.json({ error: "not authenticated" }, { status: 401 });
+
   const url = new URL(req.url);
   const mode = url.searchParams.get("mode") ?? "probe";
   const full = mode === "full";

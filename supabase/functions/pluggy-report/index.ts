@@ -42,7 +42,21 @@ type AccountStat = {
   newest: string | null;
 };
 
-Deno.serve(async () => {
+Deno.serve(async (req) => {
+  // This answers with account ids, transaction counts, date ranges and top
+  // merchants — a readable summary of somebody's finances. Supabase's verify_jwt
+  // accepts the anon key, and that key is hard-coded in the bundle of a public
+  // static site, so it establishes nothing about the caller. Same check as
+  // pluggy-connect-token: there has to be a real signed-in user behind the key.
+  const authHeader = req.headers.get("Authorization") ?? "";
+  const caller = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_ANON_KEY")!,
+    { global: { headers: { Authorization: authHeader } } },
+  );
+  const { data: { user }, error: authError } = await caller.auth.getUser();
+  if (authError || !user) return Response.json({ error: "not authenticated" }, { status: 401 });
+
   const seen = new Set<string>();                    // transaction ids, so re-runs don't double-count
   const accounts = new Map<string, AccountStat>();
   const merchants = new Map<string, number>();
