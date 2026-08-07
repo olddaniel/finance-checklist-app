@@ -27,6 +27,7 @@ function formatStamp(iso) {
 export default function DataSheet({ groupCount, itemCount, onClose, onExport, onImport, account }) {
   const [pending, setPending] = useState(null);
   const [error,   setError]   = useState(null);
+  const [importing, setImporting] = useState(false);
   const [theme,   setThemeState] = useState(getTheme);
   const fileRef = useRef(null);
 
@@ -68,6 +69,19 @@ export default function DataSheet({ groupCount, itemCount, onClose, onExport, on
     reader.readAsText(file);
   }
 
+  // onImport resolves false when the write failed. Saying "importado" then would
+  // be a lie, and in cloud mode a costly one — so the confirmation stays open
+  // with the export button next to it.
+  async function confirmImport() {
+    setImporting(true);
+    setError(null);
+    const ok = await onImport(pending.data);
+    setImporting(false);
+    if (!ok) {
+      setError("Não foi possível importar. Nada mudou aqui — exporte um backup antes de tentar de novo.");
+    }
+  }
+
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div
@@ -101,6 +115,19 @@ export default function DataSheet({ groupCount, itemCount, onClose, onExport, on
             <PluggyConnections />
             <button className="sheet-btn" onClick={account.onSignOut} type="button">
               Sair
+            </button>
+          </div>
+        )}
+
+        {account?.localOnly && (
+          <div className="sheet-account">
+            <p className="modal-note">
+              Este dispositivo está no modo <strong>somente neste dispositivo</strong>: nada
+              é enviado para uma conta e limpar os dados do navegador apaga tudo. Entrar com
+              uma conta não apaga o que está aqui — o app oferece importar estes dados.
+            </p>
+            <button className="sheet-btn" onClick={account.onUseCloud} type="button">
+              Entrar com uma conta
             </button>
           </div>
         )}
@@ -162,20 +189,29 @@ export default function DataSheet({ groupCount, itemCount, onClose, onExport, on
               {formatStamp(pending.exportedAt) && <> · exportado em {formatStamp(pending.exportedAt)}</>}
             </p>
             <p className="sheet-warning">
-              Isto substitui todos os dados deste dispositivo. Dá para desfazer logo depois.
+              {account?.email
+                ? "Isto substitui todos os dados da sua conta, em todos os dispositivos. Dá para desfazer logo depois."
+                : "Isto substitui todos os dados deste dispositivo. Dá para desfazer logo depois."}
             </p>
+            {error && <p className="sheet-error">{error}</p>}
             <div className="modal-actions">
-              <button className="modal-action-btn" onClick={() => setPending(null)} type="button">
+              <button className="modal-action-btn" onClick={() => setPending(null)} type="button" disabled={importing}>
                 Cancelar
               </button>
               <button
                 className="modal-action-btn danger"
-                onClick={() => onImport(pending.data)}
+                onClick={confirmImport}
                 type="button"
+                disabled={importing}
               >
-                Substituir dados
+                {importing ? "Importando..." : "Substituir dados"}
               </button>
             </div>
+            {error && (
+              <button className="sheet-btn" onClick={onExport} type="button">
+                Exportar backup (JSON)
+              </button>
+            )}
           </div>
         )}
       </div>

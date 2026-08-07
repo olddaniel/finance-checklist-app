@@ -147,6 +147,10 @@ export function usePayments() {
     setOpeningBalances(next.openingBalances);
     setSortModeState(next.sortMode);
     setCollapsedGroups(next.collapsedGroups);
+    // Same contract as the cloud store: the caller only reports success when
+    // the import actually happened. Local state cannot fail, so this is always
+    // true — but the shell has one code path, not two.
+    return true;
   }, []);
 
   // Checking an item clears any snooze on it, and proposes what was realised:

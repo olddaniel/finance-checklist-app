@@ -39,6 +39,10 @@ export function useCloudPayments(session, onError) {
   const [collapsedGroups, setCollapsedGroups] = useState(loadUi);
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState("idle"); // idle | saving | error
+  // Set only while nothing has ever been read, so "the account is empty" and
+  // "we could not reach it" stay different facts. Offering to overwrite the
+  // cloud on the strength of a failed read would delete a stranger's data.
+  const [loadError, setLoadError] = useState(null);
 
   // Mirrors `state` for the async write path, which needs the value at call
   // time rather than at render time. Only ever written outside render, via
@@ -72,10 +76,15 @@ export function useCloudPayments(session, onError) {
     if (!session) return;
     let alive = true;
     load()
-      .then((next) => { if (alive) { applyState(next); setLoading(false); } })
-      .catch((e) => { if (alive) { setLoading(false); setStatus("error"); onError?.(e.message); } });
+      .then((next) => { if (alive) { applyState(next); setLoadError(null); setLoading(false); } })
+      .catch((e) => {
+        if (!alive) return;
+        setLoading(false);
+        setStatus("error");
+        setLoadError(e.message ?? "Falha ao carregar");
+      });
     return () => { alive = false; };
-  }, [session, load, onError, applyState]);
+  }, [session, load, applyState]);
 
   // Refetch when the tab regains focus — cheap safety net under realtime
   useEffect(() => {
@@ -408,6 +417,24 @@ export function useCloudPayments(session, onError) {
     });
   }, []);
 
+  // Re-read everything. Goes through applyState, not setState: leaving
+  // stateRef behind would make the next write reinstate what the reload
+  // replaced.
+  const reload = useCallback(async () => {
+    try {
+      const next = await load();
+      applyState(next);
+      setLoadError(null);
+      setStatus("idle");
+      return true;
+    } catch (e) {
+      // A failed refresh over data already on screen is a status, not a screen
+      if (stateRef.current.groups.length === 0) setLoadError(e.message ?? "Falha ao carregar");
+      setStatus("error");
+      return false;
+    }
+  }, [load, applyState]);
+
   const exportState = useCallback(() => ({
     __app: "finance-tracker", __version: 1, __exportedAt: new Date().toISOString(),
     ...stateRef.current, collapsedGroups,
@@ -422,6 +449,6 @@ export function useCloudPayments(session, onError) {
     addGroup, removeGroup, renameGroup, changeGroupDateMode, applyGroupOrder,
     setGroupOpeningBalance, resetGroup, setSortMode,
     exportState, replaceAll,
-    loading, status, reload: () => load().then(setState).catch(() => {}),
+    loading, status, loadError, reload,
   };
 }

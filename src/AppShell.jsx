@@ -294,12 +294,17 @@ function AppShell({ store, account }) {
     showToast("Backup exportado", null);
   }
 
-  // Snapshot first so the toast can put everything back if the file was wrong
-  function handleImport(data) {
+  // Snapshot first so the toast can put everything back if the file was wrong.
+  // The write can fail — in cloud mode it is a round trip — so nothing is
+  // announced or closed until it comes back. Returning false leaves the sheet
+  // open with its own message and the export button still in reach.
+  async function handleImport(data) {
     const before = exportState();
-    importState(data);
+    const ok = await importState(data);
+    if (!ok) return false;
     setDataSheetOpen(false);
     showToast("Backup importado", () => importState(before));
+    return true;
   }
 
   function cycleSortMode() {
@@ -440,6 +445,17 @@ function AppShell({ store, account }) {
               <button className="item-add-confirm" onClick={handleAddGroup} disabled={!newGroupLabel.trim()} aria-label="Confirmar">✓</button>
               <button className="item-add-cancel" onClick={cancelAddGroup} aria-label="Cancelar">✕</button>
             </div>
+          </div>
+        )}
+
+        {/* Local-only mode used to be a one-way door: nothing on any screen led
+            back to an account. This is the way back, and it stays put. */}
+        {account?.localOnly && (
+          <div className="local-mode-bar">
+            <span>Somente neste dispositivo — os dados ficam apenas neste navegador.</span>
+            <button className="local-mode-btn" onClick={account.onUseCloud} type="button">
+              Entrar com uma conta
+            </button>
           </div>
         )}
       </main>

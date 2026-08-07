@@ -1533,6 +1533,20 @@
   animation: boot-pulse 1.4s ease-in-out infinite;
 }
 
+.boot-screen p {
+  margin: 0;
+  padding: 0 24px;
+  text-align: center;
+}
+
+.boot-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  max-width: 260px;
+}
+
 @keyframes boot-pulse {
   0%, 100% { opacity: 0.35; }
   50%      { opacity: 1; }
@@ -1639,6 +1653,7 @@
   &[aria-pressed="true"] { color: var(--accent); }
 }
 
+.auth-note   { margin: 0; font-size: 11px; line-height: 1.45; color: var(--text-muted); }
 .auth-error  { margin: 0; font-size: 12px; line-height: 1.4; color: var(--red); }
 .auth-notice { margin: 0; font-size: 12px; line-height: 1.4; color: var(--green); }
 
@@ -1670,6 +1685,19 @@
   &:hover { color: var(--text); }
 }
 
+.auth-link {
+  align-self: flex-start;
+  padding: 2px 0;
+  background: transparent;
+  border: none;
+  color: var(--accent);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+
+  &:hover { text-decoration: underline; }
+}
+
 .auth-local {
   margin-top: 4px;
   padding-top: 12px;
@@ -1697,6 +1725,37 @@
   cursor: pointer;
 
   &:hover { background: var(--surface-hover); color: var(--text); }
+}
+
+/* ── Local-only mode: the standing way back to an account ── */
+.local-mode-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.local-mode-btn {
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+
+  &:hover { background: var(--surface-hover); }
 }
 
 /* ── Sync status dot (top bar) ── */
