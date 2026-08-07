@@ -4,7 +4,12 @@ import { VitePWA } from 'vite-plugin-pwa'
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: '/finance-checklist-app/',
+  // Relative, not a hard-coded path. Every asset URL is resolved against
+  // wherever index.html happens to be served from, so the same build works at
+  // /finance-checklist-app/, at /finance-tracker-app/, at the root of a custom
+  // domain, and on any host. Renaming the site has blanked the screen twice;
+  // this removes the whole class of failure rather than re-pointing it.
+  base: './',
   plugins: [
     react(),
     VitePWA({
@@ -17,8 +22,10 @@ export default defineConfig({
         theme_color: '#ffffff',
         background_color: '#f4f5f8',
         display: 'standalone',
-        start_url: '/finance-checklist-app/',
-        scope: '/finance-checklist-app/',
+        // Relative for the same reason as `base` — resolved against the
+        // manifest's own location, so the installed app follows the site.
+        start_url: './',
+        scope: './',
         lang: 'pt-BR',
         icons: [
           {
