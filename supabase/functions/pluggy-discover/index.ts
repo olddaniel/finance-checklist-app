@@ -34,7 +34,21 @@ async function call(path: string, apiKey: string) {
   return { ok: res.ok, status: res.status, body };
 }
 
-Deno.serve(async () => {
+Deno.serve(async (req) => {
+  // This spends Pluggy calls and reports the connected items and accounts.
+  // Supabase's verify_jwt accepts the anon key, and that key is hard-coded in the
+  // bundle of a public static site, so it establishes nothing about the caller.
+  // Same check as pluggy-connect-token: there has to be a real signed-in user
+  // behind the key.
+  const authHeader = req.headers.get("Authorization") ?? "";
+  const caller = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_ANON_KEY")!,
+    { global: { headers: { Authorization: authHeader } } },
+  );
+  const { data: { user }, error: authError } = await caller.auth.getUser();
+  if (authError || !user) return Response.json({ error: "not authenticated" }, { status: 401 });
+
   const clientId = Deno.env.get("PLUGGY_CLIENT_ID");
   const clientSecret = Deno.env.get("PLUGGY_CLIENT_SECRET");
   if (!clientId || !clientSecret) {

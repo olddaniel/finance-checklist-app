@@ -38,3 +38,16 @@ Row level security is owner-scoped on every table. The publishable key ships in
 the client bundle, so those policies are what actually protect the data — an
 item's composite foreign key `(group_id, user_id)` additionally makes it
 impossible to attach a row to another user's group.
+
+Group and item ids are client-supplied and shared between accounts — every user
+is seeded with `monthly`, `comgas`, `aluguel` — so the primary key on both tables
+is `(id, user_id)`, not `id`. RLS could not have covered this: unique constraints
+are enforced beneath it, across every row in the table.
+
+## Edge functions
+
+Every function except `pluggy-webhook` requires a signed-in user, checked with
+`auth.getUser()` inside the handler. `verify_jwt` alone is not enough — it accepts
+the publishable key, which is in the bundle of a public site. `pluggy-webhook` is
+deployed `--no-verify-jwt` because Pluggy cannot present a Supabase JWT, and
+authenticates with a shared secret instead.
