@@ -253,6 +253,42 @@ is two linked rows resolved by the two flags, this is two dates on one row. The
 shared idea is that **when money moves and which period it belongs to are separate
 facts.**
 
+### Undated expenses split in two
+
+v1 allows planned items with no date, which was harmless when there was no
+projection. In the new model an outflow with no day is a hole, and the running
+balance overstates cash by exactly that amount — the same failure as omitting a
+transfer to Reservas.
+
+The fix is not to demand a date. It is that one mechanism has been carrying two
+different things.
+
+**One event, unknown day** — the diarista, a fatura whose due date drifts, an annual
+charge landing sometime this month. These get an **estimated** day rather than none:
+derived from the median day that merchant or category actually hits across twelve
+months, rendered as *"~dia 12"*, and shown as a band rather than a hard step. An
+estimate three days off costs almost nothing; an omission costs the whole amount.
+
+**Continuous spend** — mercado, combustível, restaurantes. This cannot be a planned
+row, and the reason is that **nothing ticks it**: with 293 grocery transactions,
+no matching rule can decide which one marks *"Mercado R$1.500"* as paid. It is a
+different object — a **category expectation** for the month, consumed by real
+transactions as they arrive:
+
+> **Mercado** — R$980 de ~R$1.500 previstos · faltam 12 dias
+
+The projection spreads the remainder across the remaining days, which is more
+accurate than a single step would be, because that is how the money actually leaves.
+Guiabolso's explicit **"livre" bucket** is the same object with no category attached.
+
+So `dateMode: "none"` is retired. Reservas and Cartão stop being "the groups without
+dates" and become ordinary folders: the reserve transfer takes a conservatively early
+estimated day, the fatura takes its real due date.
+
+Deliberately excluded: *"trocar os pneus em algum momento este ano"* — no month, no
+defensible amount. That is a wish, not a plan, and it would corrupt the projection.
+If tracked at all, it belongs in a list that never touches a number.
+
 ### One-off planned events
 
 A planned instance does not have to come from a recurring definition. An `avulso`
