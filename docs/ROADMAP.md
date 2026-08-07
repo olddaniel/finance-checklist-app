@@ -159,6 +159,44 @@ the thing Dashplan cannot do at all.
 Vocabulary is taken from Dashplan where it is already good: *classificação neutra*,
 *despesas obrigatórias / não obrigatórias*, *transferência mesma titularidade*.
 
+## The ledger screen
+
+**Filters are the drill-down, not a feature.** Every number in the app taps through
+into a filtered list; the filter state is simply what that list is showing. Built
+once, "filter" and "show me why this total is what it is" become the same mechanism.
+
+- One input searching merchant, description, category and amount — never a modal of
+  dropdowns.
+- Chips for período, conta/cartão, categoria, classificação, tag, and a status axis
+  nobody offers: `a revisar` · `sem categoria` · `oculto` · `duplicado suspeito`.
+  That status filter *is* the review queue.
+- **A filtered list always shows the sum of what it contains.** Without it, filtering
+  is scrolling rather than answering.
+- Saved views fall out of this almost free, since the state is a chip row.
+
+**Row actions, decided:**
+
+- *Criar* — yes. Cash exists, and so will unsyncable accounts. Manual rows are
+  flagged as manual so sync never overwrites them.
+- *Excluir* — only for manually created rows. Deleting a synced transaction is a
+  lie: the money moved. It either returns on the next sync, to be deleted monthly
+  forever, or it does not and the balance quietly stops reconciling with the bank.
+- *Ignorar* — yes, but it is not a second mechanism. Ignoring is *classificação
+  neutra*: the row stays, still counts toward the balance, drops out of spending
+  totals, and the list shows `12 ocultos` as a tappable chip. Reversible and visible;
+  nothing vanishes.
+
+## Projetos — deliberately out of scope
+
+Dashplan's *Projetos* (viagens, família, veículo, casa, educação, saúde…) are sinking
+funds wired to its long-term planning tabs. Left out for two reasons: it duplicates
+the taxonomy — `Viagens` already exists as a category, and a trip is a container
+spanning categories and months rather than a kind of expense — and Daniel does not
+use it.
+
+Tags are built now regardless, as a free dimension. If projects are ever wanted they
+are a tag with a target, which is a small feature rather than a schema migration.
+
 ## Evidence: the Estabelecimento column
 
 In Dashplan the `Estabelecimento` column is empty on nearly every row —
