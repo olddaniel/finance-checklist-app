@@ -119,6 +119,63 @@ Two more, carried from the research:
 12. **Never derive a balance by summing transactions.** Show the provider's balance
     with its own timestamp; if the sum disagrees, surface the delta.
 
+## The plan model: kill the reset, keep the folders
+
+v1 stores a *stateless recurring checklist*. A group does four jobs at once — a
+recurrence rule (Mensais = day of month, Anuais = month of year), a folder, the reset
+unit, and a projection scope with its own hand-typed `openingBalance`. Three of the
+four break in the new picture.
+
+**The projection scope breaks hardest.** Four opening balances, one per group, each
+typed by hand — against one real bank balance. Once balances arrive from Pluggy there
+is exactly one cash position, and four parallel projections of the same money either
+sum to four times it or disagree with each other. The daily balance view moves up to
+the month, where it is both simpler and correct.
+
+**Recurrence is a property of the item, not the container.** Expressing "monthly"
+by folder membership means a monthly bill can never live in the Cartão folder. It
+becomes a field: `mensal` / `anual` / `avulso`.
+
+**And `resetGroup()` has to go.** Dates are the symptom; the reset is the disease. It
+overwrites the cycle, so there is no July. Six things depend on there being one:
+
+- Auto-ticking needs a dated instance. A transaction dated 2026-08-12 against a row
+  that says "day 12" — which August? A month that is overwritten rather than closed
+  offers nothing unambiguous to match.
+- "What have I paid" (pain #2) answers only for the current cycle; ask about July and
+  the data is gone.
+- Cash flow crosses month boundaries. "When do I withdraw to cover this" usually
+  points at a fatura or an IPVA *next* month — past the edge of a cycle-relative model.
+- Anuais is already broken: the model stores a month number and resets yearly, so it
+  knows which month but never which year, and cannot show January's IPVA from August.
+- Recurring detection produces *dated* proposals from twelve dated observations.
+  A date-agnostic target throws away the evidence.
+- A net-worth trend needs monthly snapshots.
+
+**Two levels replace one.**
+
+*The recurring definition* — label, kind, estimated amount, recurrence, due day or
+month, folder, active. Essentially today's state minus the ticks.
+
+*The monthly instance* — one row per definition per month: competência `2026-08`, a
+real `due_date`, expected amount, status (`previsto` / `pago` / `ignorado`), and the
+transaction that paid it with what it actually cost.
+
+Months are **generated and then closed**, never reset. Navigating to Setembro creates
+its instances; Agosto stays as it was, permanently.
+
+This also makes the fatura row stop being a typed number: its amount is computed from
+the card transactions inside the closed invoice period. That is principle 7 doing
+real work, and the join between the ledger and the plan.
+
+**Groups survive as folders** — drag-ordered, organising the screen. They lose the
+reset button, the recurrence meaning and the per-group opening balance.
+
+**Nothing is lost in the migration.** Today's state is entirely a plan — labels,
+values, days, kinds — which becomes the recurring definitions unchanged, with Agosto
+2026 as the first generated month. There is no history to migrate because v1 never
+kept any.
+
 ## Propose, don't ask
 
 Three unrelated products converge on one idea, and it is the difference between this
