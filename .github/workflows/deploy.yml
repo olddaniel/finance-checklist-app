@@ -10,6 +10,7 @@ permissions:
   contents: read
   pages: write
   id-token: write
+  actions: read # to see whether the migration for this commit has finished
 
 concurrency:
   group: pages
@@ -46,6 +47,39 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      # Both workflows fire on the same push and are otherwise unordered, so the
+      # new frontend could go live against the old schema — a client that upserts
+      # on a constraint the database does not have yet fails every save until the
+      # migration lands. Publishing second costs a couple of minutes and removes
+      # the window entirely.
+      #
+      # Only waits when this commit actually has a migration run: pushes that
+      # touch no migration never start one, and must not block forever on it.
+      - name: Wait for this commit's migrations
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for _ in $(seq 1 40); do   # 40 × 15s = 10 min ceiling
+            run=$(gh run list --workflow migrate.yml --commit "$GITHUB_SHA" \
+                    --limit 1 --json status,conclusion --repo "$GITHUB_REPOSITORY")
+            [ "$run" = "[]" ] && { echo "No migration for this commit."; exit 0; }
+
+            status=$(echo "$run" | jq -r '.[0].status')
+            conclusion=$(echo "$run" | jq -r '.[0].conclusion')
+            if [ "$status" = "completed" ]; then
+              # A failed migration means the schema is not what this build expects.
+              # Stop rather than publish a frontend against it.
+              [ "$conclusion" = "success" ] && { echo "Migrations applied."; exit 0; }
+              echo "::error::Migration run concluded '$conclusion' — not publishing."
+              exit 1
+            fi
+            echo "Migration $status; waiting..."
+            sleep 15
+          done
+          echo "::error::Timed out waiting for migrations."
+          exit 1
+
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
