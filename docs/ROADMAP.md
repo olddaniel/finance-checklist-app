@@ -119,6 +119,122 @@ Two more, carried from the research:
 12. **Never derive a balance by summing transactions.** Show the provider's balance
     with its own timestamp; if the sum disagrees, surface the delta.
 
+## Propose, don't ask
+
+Three unrelated products converge on one idea, and it is the difference between this
+app and Dashplan.
+
+- **Pierre's** real pt-BR tagline is *"sem categorias **para preencher**"* — no
+  categories **to fill in**. It categorises heavily; it never asks. (Its store copy
+  sells category tracking, budgets and comparison charts, so "no charts, no
+  categories" is positioning, not architecture.)
+- **Olivia** never showed a blank chat box. Three tappable prompts — análise mensal,
+  *posso comprar*, quiz — composed the message for the user. A blank input makes
+  someone guess the app's vocabulary.
+- **Superhuman** precomputes three send-ready replies before the message is opened.
+  The expensive part of triage is the decision, not the keystroke; a proposal turns
+  *"what category is this?"* into *"is Alimentação right? y/n"*.
+
+Dashplan hands over a grid and asks for it to be filled in. That is the gap.
+
+## "Posso comprar?"
+
+Olivia's signature interaction, and the flagship feature here. Every other app
+answers *"what did I spend?"* — retrospective and useless at the moment of decision.
+This one answers *"should I?"*, and answering it requires exactly what this app has
+and Dashplan does not: predicted fixed expenses, daily projected balances,
+month-ahead cash flow.
+
+The answer is a sentence and a number, never a chart:
+
+> *Cabe. Depois disso sobram R$1.240 até dia 30, e a fatura do Inter (R$2.100) já
+> está contada.*
+
+It degrades gracefully: with twelve months of history, annual charges (IPVA, seguro,
+IPTU) are thinly detected, so the verdict says what it does not know.
+
+Corroboration that this is unoccupied ground: the top complaint in Pierre's own App
+Store reviews is that it cannot register expected income and expenses or show a
+predicted monthly balance. Its second is sync lagging by up to a week.
+
+## The review loop
+
+No personal finance product has assembled this pattern. Actual Budget comes closest
+(single-key verbs on a focused row, rules inferred from behaviour); Copilot has
+reviewed-state and arrow-key navigation; Monarch separates merchant-rename rules from
+category rules. None has the palette, the shortcut-teaching mechanism, the latency
+budget or the ceremony.
+
+Build order matters — the palette is the long-tail layer, not the foundation.
+
+1. **Split the queue by kind, not by date.** Exhaustion comes from switching decision
+   criteria row to row; sixty identical decisions are cheaper than twenty varied
+   ones. Splits: *Não categorizadas · Categoria incerta · Possíveis transferências ·
+   Contas previstas a confirmar · Novo estabelecimento*, each with its own count.
+   Within a split, every row asks the same question.
+2. **Precompute at sync time** — proposed category, normalised merchant, transfer
+   pair. A spinner on the interactive path destroys the whole benefit.
+3. **Six single-letter verbs, no modifier:** `C` categorizar · `T` transferência ·
+   `P` pago · `I` ocultar · `R` criar regra · `Z` desfazer. Not a hundred.
+4. **The palette teaches its own shortcuts** — each row shows its single-letter key
+   on the right, so the slow path advertises the fast one at the moment of intent.
+   No tour, no cheat sheet; users graduate themselves.
+5. **Undo, never confirm.** A dialog in the triage loop does not cost a keystroke, it
+   breaks the rhythm, and the rhythm is the product. Bulk actions and rule
+   application included: *"Regra aplicada a 23 transações — desfazer."*
+6. **Frecency on the category picker** — rank by frequency × recency per query
+   string, so `m` comes to mean *Mercado* for this user. ~30 lines, and it is what
+   makes a picker feel like it knows you.
+7. **Normalise accents before fuzzy-matching**, or `alimentacao` will not match
+   `Alimentação`. Superhuman's matching algorithm is open-source and is the default
+   in the standard React command-bar library; no reason to write our own.
+8. **Endowed progress.** Never an undifferentiated 180. *"118 de 180 resolvidas
+   automaticamente — faltam 62."* Then *"Mês revisado"* as a real closing screen —
+   the boundary marker that makes a chore repeatable.
+
+Mobile keeps the queue and loses the palette: swipe right accepts the suggestion,
+swipe left opens the category sheet, long-press enters batch mode. Same splits, same
+counts, same verbs, different input layer. Do not build a phone command bar.
+
+## From Guiabolso
+
+- **One chronological Extrato** — every movement of the month in a single list,
+  all accounts and cards together, manual entries in the same stream. The mental
+  model is "my money this month", not "my Itaú".
+- **Correction as low ceremony**, with the whole verb set: recategorise, *create a
+  new category*, ignore, tag, describe, mark duplicates, multi-select. Most rebuilds
+  ship only the first. Creating a category from the row existed in 2015; Dashplan
+  removed a feature eleven years old.
+- **Totals recompute as you correct.** Keep the month in memory, recompute locally,
+  never round-trip. Watching the numbers move is what pays for the labour.
+- **An explicit "livre" bucket** in the plan — money allocated to be spent on
+  nothing in particular. A plan with no slack is violated on day four and then
+  abandoned.
+
+## Rejected, with reasons
+
+- **Chat as the primary interface.** Pierre's own product hedges: it ships a full GUI
+  while advertising that it hasn't. Chat cannot answer "what do I pay today" faster
+  than a list, and it makes non-question actions harder — likely why Pierre appears
+  to have no category-correction affordance at all.
+- **The "agent" abstraction as a user-facing concept.** Cron jobs named after dead
+  scientists, metered 1/2/10 by price tier. Daniel should never learn the word.
+- **Peer comparison and financial-health scores.** Guiabolso ranked users against
+  each other. There is no cohort here, and inventing a benchmark is a lie.
+  Self-comparison against a trailing six-month median is honest and more useful.
+- **Daily proactive messages.** Olivia messaged every day with GIFs and jokes; that
+  is the pattern that gets muted, and a muted app is dead. Frequency follows event
+  significance, not the clock — and consent expiry is itself an event.
+- **Gamification.** A streak on *mês fechado* is a boundary marker. Points for
+  categorising transactions would reward volume over correctness.
+
+**Evidence note.** This research ran under a network policy that blocked page
+fetching for every host, so the underlying reports rest on search summaries. Four
+load-bearing claims were re-verified independently: Pierre's planning complaint,
+Olivia's three tappable prompts, Guiabolso's create-category-from-the-row, and
+Superhuman's shortcut-teaching palette. The rest — particularly Pierre's *absence* of
+a correction flow — is inference from silence.
+
 ## The category model
 
 Dashplan's best idea and its worst execution live in the same place, so this deserves
