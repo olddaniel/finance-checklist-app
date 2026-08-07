@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { DEFAULT_PAYMENTS } from "../data";
+import { seedState } from "../data";
 import { EXPENSE, REVENUE, todayISO } from "../utils";
 
 const STORAGE_KEY = "payment-tracker-state";
@@ -42,38 +42,29 @@ function normalizeDateMode(g) {
   return "days";
 }
 
-function mergeGroups(saved, defaults) {
-  if (!saved) return defaults.map((g) => ({ ...g, items: [...g.items] }));
+// Saved groups, brought up to the current shape and otherwise left alone —
+// in saved order, so drag-reordering survives. The defaults are never mixed in
+// here: this runs over data the user already has, and a default group missing
+// from it was either deleted or never theirs. Seeding happens once, in
+// initialState, and only when nothing at all was ever saved.
+function normalizeGroups(saved) {
+  return (saved ?? []).map((s) => ({ ...s, dateMode: normalizeDateMode(s) }));
+}
 
-  const defaultMap = Object.fromEntries(defaults.map((g) => [g.id, g]));
-  const savedIds   = new Set(saved.map((g) => g.id));
-
-  // Rebuild in saved order — this preserves any user drag-reordering.
-  const result = saved.map((s) => {
-    const d = defaultMap[s.id];
-    if (d) {
-      // Known default group: merge saved data on top so renames / dateMode changes survive,
-      // while new fields added to defaults in the future still get picked up via ...d.
-      return { ...d, ...s, dateMode: normalizeDateMode(s) };
-    }
-    // User-added group
-    return { ...s, dateMode: normalizeDateMode(s) };
-  });
-
-  // Append any brand-new default groups not yet in saved state (e.g. future app updates).
-  const newDefaults = defaults
-    .filter((d) => !savedIds.has(d.id))
-    .map((d) => ({ ...d, items: [...d.items] }));
-
-  return [...result, ...newDefaults];
+// `null` means nothing was ever written to this browser — the only moment the
+// examples apply. An existing store is returned untouched, however little it
+// happens to contain.
+function initialState() {
+  return loadState() ?? seedState();
 }
 
 // Brings a backup — current or from an older version — up to the shape the app
 // expects. Shared by the local and cloud stores so an import behaves the same
-// either way.
+// either way. It restores what the backup holds and nothing more: a backup
+// taken before a default group existed must not come back carrying it.
 export function normalizeBackup(data) {
   return {
-    groups:          mergeGroups(data.groups, DEFAULT_PAYMENTS),
+    groups:          normalizeGroups(data.groups),
     checked:         data.checked ?? {},
     snoozed:         data.snoozed ?? {},
     values:          data.values ?? {},
@@ -91,26 +82,30 @@ export function normalizeBackup(data) {
 }
 
 export function usePayments() {
-  const [groups, setGroups] = useState(() => mergeGroups(loadState()?.groups, DEFAULT_PAYMENTS));
-  const [checked,         setChecked]         = useState(() => loadState()?.checked         ?? {});
-  const [snoozed,         setSnoozed]         = useState(() => loadState()?.snoozed         ?? {});
-  const [values,          setValues]          = useState(() => loadState()?.values          ?? {});
+  // Read once, so every field below rests on the same answer to "is this a
+  // first run?" rather than on twelve separate reads of the same key.
+  const [initial] = useState(initialState);
+
+  const [groups, setGroups] = useState(() => normalizeGroups(initial.groups));
+  const [checked,         setChecked]         = useState(() => initial.checked         ?? {});
+  const [snoozed,         setSnoozed]         = useState(() => initial.snoozed         ?? {});
+  const [values,          setValues]          = useState(() => initial.values          ?? {});
   // Item kind: "expense" | "revenue". Absent = expense, so every value that was
   // already stored before this field existed keeps counting as an expense.
-  const [kinds,           setKinds]           = useState(() => loadState()?.kinds           ?? {});
-  const [lastResets,      setLastResets]      = useState(() => loadState()?.lastResets      ?? {});
-  const [dates,           setDates]           = useState(() => loadState()?.dates           ?? {});
+  const [kinds,           setKinds]           = useState(() => initial.kinds           ?? {});
+  const [lastResets,      setLastResets]      = useState(() => initial.lastResets      ?? {});
+  const [dates,           setDates]           = useState(() => initial.dates           ?? {});
   // What actually happened, kept apart from the plan so `values`/`dates` are
   // never overwritten. A missing key means the item has not been realised —
   // this is the slot a matched bank transaction will fill in later.
-  const [actualValues,    setActualValues]    = useState(() => loadState()?.actualValues    ?? {});
-  const [actualDates,     setActualDates]     = useState(() => loadState()?.actualDates     ?? {});
-  const [sortMode,        setSortModeState]   = useState(() => loadState()?.sortMode        ?? "manual");
+  const [actualValues,    setActualValues]    = useState(() => initial.actualValues    ?? {});
+  const [actualDates,     setActualDates]     = useState(() => initial.actualDates     ?? {});
+  const [sortMode,        setSortModeState]   = useState(() => initial.sortMode        ?? "manual");
   // Per-group starting balance for the "balance" view — the money on hand at the
   // moment the group was last reset, which the day-by-day projection builds on.
-  const [openingBalances, setOpeningBalances] = useState(() => loadState()?.openingBalances ?? {});
+  const [openingBalances, setOpeningBalances] = useState(() => initial.openingBalances ?? {});
   const [collapsedGroups, setCollapsedGroups] = useState(
-    () => normalizeCollapsed(loadState()?.collapsedGroups)
+    () => normalizeCollapsed(initial.collapsedGroups)
   );
 
   useEffect(() => {
