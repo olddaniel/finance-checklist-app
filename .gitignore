@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Scratch checkouts created when agents work in isolation. Temporary by
+# construction and removed once the work is merged.
+.claude/worktrees/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
