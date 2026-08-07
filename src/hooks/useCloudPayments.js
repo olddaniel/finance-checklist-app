@@ -1,14 +1,15 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import { groupToRow, itemToRow, rowsToState, stateToRows } from "../lib/mappers";
-import { EXPENSE, REVENUE } from "../utils";
+import { EXPENSE, REVENUE, todayISO } from "../utils";
 
 const VIEW_STATES = ["closed", "semi", "open", "balance"];
 const UI_KEY = "finance-tracker-ui";
 
 const EMPTY = {
   groups: [], checked: {}, snoozed: {}, values: {}, kinds: {},
-  dates: {}, lastResets: {}, openingBalances: {}, sortMode: "manual",
+  dates: {}, actualValues: {}, actualDates: {},
+  lastResets: {}, openingBalances: {}, sortMode: "manual",
 };
 
 // Per-device UI state stays local — it is not worth a round trip and it should
@@ -154,9 +155,21 @@ export function useCloudPayments(session, onError) {
   };
 
   // ── Item mutations ──
+  // Same propose-don't-assert rule as the local store: ticking fills the realised
+  // pair with the planned amount on today's date if it is still empty, and
+  // un-ticking drops it again.
   const toggle = useCallback((id) => commit(
-    (s) => ({ ...s, checked: { ...s.checked, [id]: !s.checked[id] },
-              snoozed: !s.checked[id] ? { ...s.snoozed, [id]: false } : s.snoozed }),
+    (s) => {
+      const nowChecked = !s.checked[id];
+      const drop = (m) => { const n = { ...m }; delete n[id]; return n; };
+      return { ...s,
+        checked: { ...s.checked, [id]: nowChecked },
+        snoozed: nowChecked ? { ...s.snoozed, [id]: false } : s.snoozed,
+        actualValues: !nowChecked ? drop(s.actualValues)
+          : s.actualValues[id] === undefined ? { ...s.actualValues, [id]: s.values[id] ?? 0 } : s.actualValues,
+        actualDates: !nowChecked ? drop(s.actualDates)
+          : s.actualDates[id] === undefined ? { ...s.actualDates, [id]: todayISO() } : s.actualDates };
+    },
     writeItem(id), [id]
   ), [commit]);
 
@@ -181,6 +194,25 @@ export function useCloudPayments(session, onError) {
     return commit((s) => ({ ...s, dates: { ...s.dates, [id]: isNaN(num) ? null : num } }), writeItem(id), [id]);
   }, [commit]);
 
+  // Clearing drops the key: "not realised" is not the same fact as "realised as 0"
+  const setItemActualValue = useCallback((id, raw) => {
+    const num = parseFloat(raw);
+    return commit((s) => {
+      const next = { ...s.actualValues };
+      if (isNaN(num)) delete next[id]; else next[id] = num;
+      return { ...s, actualValues: next };
+    }, writeItem(id), [id]);
+  }, [commit]);
+
+  const setItemActualDate = useCallback((id, raw) => commit(
+    (s) => {
+      const next = { ...s.actualDates };
+      if (!raw) delete next[id]; else next[id] = raw;
+      return { ...s, actualDates: next };
+    },
+    writeItem(id), [id]
+  ), [commit]);
+
   const renameItem = useCallback((groupId, itemId, label) => commit(
     (s) => ({ ...s, groups: s.groups.map((g) => g.id !== groupId ? g
       : { ...g, items: g.items.map((i) => i.id === itemId ? { ...i, label } : i) }) }),
@@ -202,7 +234,8 @@ export function useCloudPayments(session, onError) {
       return { ...s,
         groups: s.groups.map((g) => g.id !== groupId ? g : { ...g, items: g.items.filter((i) => i.id !== itemId) }),
         checked: strip(s.checked), snoozed: strip(s.snoozed),
-        values: strip(s.values), kinds: strip(s.kinds), dates: strip(s.dates) };
+        values: strip(s.values), kinds: strip(s.kinds), dates: strip(s.dates),
+        actualValues: strip(s.actualValues), actualDates: strip(s.actualDates) };
     },
     () => supabase.from("items").delete().eq("id", itemId), [itemId]
   ), [commit]);
@@ -241,6 +274,7 @@ export function useCloudPayments(session, onError) {
         groups: s.groups.filter((g) => g.id !== groupId),
         checked: strip(s.checked), snoozed: strip(s.snoozed), values: strip(s.values),
         kinds: strip(s.kinds), dates: strip(s.dates),
+        actualValues: strip(s.actualValues), actualDates: strip(s.actualDates),
         lastResets: dropGroup(s.lastResets), openingBalances: dropGroup(s.openingBalances) };
     },
     () => supabase.from("groups").delete().eq("id", groupId), [groupId]
@@ -268,14 +302,18 @@ export function useCloudPayments(session, onError) {
     (s) => {
       const ids = s.groups.find((g) => g.id === groupId)?.items.map((i) => i.id) ?? [];
       const clear = (m) => { const n = { ...m }; ids.forEach((i) => { n[i] = false; }); return n; };
+      // Realised values belong to the cycle: keeping them would bleed last
+      // month's actuals into this one.
+      const strip = (m) => { const n = { ...m }; ids.forEach((i) => delete n[i]); return n; };
       return { ...s, checked: clear(s.checked), snoozed: clear(s.snoozed),
+               actualValues: strip(s.actualValues), actualDates: strip(s.actualDates),
                lastResets: { ...s.lastResets, [groupId]: new Date().toISOString() } };
     },
     async (next) => {
       const ids = next.groups.find((g) => g.id === groupId)?.items.map((i) => i.id) ?? [];
       if (ids.length) {
         const { error } = await supabase.from("items")
-          .update({ checked: false, snoozed: false }).in("id", ids);
+          .update({ checked: false, snoozed: false, actual_value: null, actual_date: null }).in("id", ids);
         if (error) return { error };
       }
       return writeGroup(groupId)(next);
@@ -357,6 +395,7 @@ export function useCloudPayments(session, onError) {
     ...state,
     collapsedGroups, toggleGroupCollapsed, collapseAllGroups,
     toggle, toggleSnooze, setItemValue, setItemKind, setItemDate,
+    setItemActualValue, setItemActualDate,
     addItem, removeItem, restoreItem, renameItem,
     addGroup, removeGroup, renameGroup, changeGroupDateMode, applyGroupOrder,
     setGroupOpeningBalance, resetGroup, setSortMode,

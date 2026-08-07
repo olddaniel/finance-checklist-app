@@ -22,6 +22,9 @@ export function itemToRow(item, groupId, position, state) {
     value: state.values?.[item.id] ?? 0,
     kind: kindOf(state.kinds, item.id),
     due_date: state.dates?.[item.id] ?? null,
+    // null, not 0 — the column has to be able to say "not realised"
+    actual_value: state.actualValues?.[item.id] ?? null,
+    actual_date: state.actualDates?.[item.id] ?? null,
     checked: !!state.checked?.[item.id],
     snoozed: !!state.snoozed?.[item.id],
     position,
@@ -43,6 +46,7 @@ export function stateToRows(state) {
 export function rowsToState(groupRows, itemRows, prefsRow) {
   const byGroup = new Map(groupRows.map((g) => [g.id, []]));
   const checked = {}, snoozed = {}, values = {}, kinds = {}, dates = {};
+  const actualValues = {}, actualDates = {};
 
   for (const row of itemRows) {
     if (!byGroup.has(row.group_id)) continue; // orphan guard
@@ -52,6 +56,10 @@ export function rowsToState(groupRows, itemRows, prefsRow) {
     values[row.id]  = Number(row.value) || 0;
     kinds[row.id]   = row.kind === "revenue" ? "revenue" : "expense";
     dates[row.id]   = row.due_date ?? null;
+    // Left out of the map entirely when null, so absent keeps meaning "not
+    // realised" — including on rows written before the columns existed.
+    if (row.actual_value != null) actualValues[row.id] = Number(row.actual_value);
+    if (row.actual_date  != null) actualDates[row.id]  = row.actual_date;
   }
 
   const lastResets = {}, openingBalances = {};
@@ -71,7 +79,8 @@ export function rowsToState(groupRows, itemRows, prefsRow) {
     });
 
   return {
-    groups, checked, snoozed, values, kinds, dates, lastResets, openingBalances,
+    groups, checked, snoozed, values, kinds, dates, actualValues, actualDates,
+    lastResets, openingBalances,
     sortMode: prefsRow?.sort_mode ?? "manual",
   };
 }

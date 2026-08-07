@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { DEFAULT_PAYMENTS } from "../data";
-import { EXPENSE, REVENUE } from "../utils";
+import { EXPENSE, REVENUE, todayISO } from "../utils";
 
 const STORAGE_KEY = "payment-tracker-state";
 
@@ -79,6 +79,10 @@ export function normalizeBackup(data) {
     values:          data.values ?? {},
     kinds:           data.kinds ?? {},
     dates:           data.dates ?? {},
+    // Absent = not realised. A backup written before these existed imports with
+    // both maps empty, which is exactly right: nothing in it was ever realised.
+    actualValues:    data.actualValues ?? {},
+    actualDates:     data.actualDates ?? {},
     lastResets:      data.lastResets ?? {},
     openingBalances: data.openingBalances ?? {},
     sortMode:        SORT_MODES.includes(data.sortMode) ? data.sortMode : "manual",
@@ -96,6 +100,11 @@ export function usePayments() {
   const [kinds,           setKinds]           = useState(() => loadState()?.kinds           ?? {});
   const [lastResets,      setLastResets]      = useState(() => loadState()?.lastResets      ?? {});
   const [dates,           setDates]           = useState(() => loadState()?.dates           ?? {});
+  // What actually happened, kept apart from the plan so `values`/`dates` are
+  // never overwritten. A missing key means the item has not been realised —
+  // this is the slot a matched bank transaction will fill in later.
+  const [actualValues,    setActualValues]    = useState(() => loadState()?.actualValues    ?? {});
+  const [actualDates,     setActualDates]     = useState(() => loadState()?.actualDates     ?? {});
   const [sortMode,        setSortModeState]   = useState(() => loadState()?.sortMode        ?? "manual");
   // Per-group starting balance for the "balance" view — the money on hand at the
   // moment the group was last reset, which the day-by-day projection builds on.
@@ -105,8 +114,8 @@ export function usePayments() {
   );
 
   useEffect(() => {
-    saveState({ groups, checked, snoozed, values, kinds, lastResets, dates, sortMode, collapsedGroups, openingBalances });
-  }, [groups, checked, snoozed, values, kinds, lastResets, dates, sortMode, collapsedGroups, openingBalances]);
+    saveState({ groups, checked, snoozed, values, kinds, lastResets, dates, actualValues, actualDates, sortMode, collapsedGroups, openingBalances });
+  }, [groups, checked, snoozed, values, kinds, lastResets, dates, actualValues, actualDates, sortMode, collapsedGroups, openingBalances]);
 
   // ── Backup ──
   // exportState returns exactly what gets persisted, plus a little provenance.
@@ -118,8 +127,10 @@ export function usePayments() {
     __version: 1,
     __exportedAt: new Date().toISOString(),
     groups, checked, snoozed, values, kinds, lastResets, dates,
+    actualValues, actualDates,
     sortMode, collapsedGroups, openingBalances,
   }), [groups, checked, snoozed, values, kinds, lastResets, dates,
+       actualValues, actualDates,
        sortMode, collapsedGroups, openingBalances]);
 
   const importState = useCallback((data) => {
@@ -130,20 +141,32 @@ export function usePayments() {
     setValues(next.values);
     setKinds(next.kinds);
     setDates(next.dates);
+    setActualValues(next.actualValues);
+    setActualDates(next.actualDates);
     setLastResets(next.lastResets);
     setOpeningBalances(next.openingBalances);
     setSortModeState(next.sortMode);
     setCollapsedGroups(next.collapsedGroups);
   }, []);
 
-  // Checking an item clears any snooze on it
+  // Checking an item clears any snooze on it, and proposes what was realised:
+  // the planned amount, today. Both stay editable, and neither is asserted —
+  // un-checking removes them again, so a tick that was a mistake leaves nothing
+  // behind. A proposal nobody looks at still has to be the likeliest answer.
   const toggle = useCallback((id) => {
     setChecked((prev) => {
       const next = { ...prev, [id]: !prev[id] };
-      if (next[id]) setSnoozed((s) => ({ ...s, [id]: false }));
+      if (next[id]) {
+        setSnoozed((s) => ({ ...s, [id]: false }));
+        setActualValues((v) => v[id] === undefined ? { ...v, [id]: values[id] ?? 0 } : v);
+        setActualDates((d)  => d[id] === undefined ? { ...d, [id]: todayISO()     } : d);
+      } else {
+        setActualValues((v) => { const n = { ...v }; delete n[id]; return n; });
+        setActualDates((d)  => { const n = { ...d }; delete n[id]; return n; });
+      }
       return next;
     });
-  }, []);
+  }, [values]);
 
   // Snoozing an item clears any check on it; toggling off snooze just removes it
   const toggleSnooze = useCallback((id) => {
@@ -168,6 +191,23 @@ export function usePayments() {
     setDates((prev) => ({ ...prev, [id]: isNaN(num) ? null : num }));
   }, []);
 
+  // Clearing the field drops the key rather than storing 0 / null — "not
+  // realised" and "realised as zero" are different facts.
+  const setItemActualValue = useCallback((id, rawValue) => {
+    const num = parseFloat(rawValue);
+    setActualValues((prev) => {
+      if (isNaN(num)) { const n = { ...prev }; delete n[id]; return n; }
+      return { ...prev, [id]: num };
+    });
+  }, []);
+
+  const setItemActualDate = useCallback((id, rawValue) => {
+    setActualDates((prev) => {
+      if (!rawValue) { const n = { ...prev }; delete n[id]; return n; }
+      return { ...prev, [id]: rawValue };
+    });
+  }, []);
+
   // Starting balances may legitimately be negative, so no clamping here
   const setGroupOpeningBalance = useCallback((groupId, rawValue) => {
     const num = parseFloat(rawValue);
@@ -189,6 +229,10 @@ export function usePayments() {
         ids.forEach((id) => { next[id] = false; });
         return next;
       });
+      // Realised values belong to the cycle, not to the definition: kept across a
+      // reset, last month's actuals would read as this month's.
+      setActualValues((v) => { const n = { ...v }; ids.forEach((id) => delete n[id]); return n; });
+      setActualDates((d)  => { const n = { ...d }; ids.forEach((id) => delete n[id]); return n; });
       return prev;
     });
     setLastResets((prev) => ({ ...prev, [groupId]: new Date().toISOString() }));
@@ -214,6 +258,8 @@ export function usePayments() {
     setValues((prev)  => { const n = { ...prev }; delete n[itemId]; return n; });
     setKinds((prev)   => { const n = { ...prev }; delete n[itemId]; return n; });
     setDates((prev)   => { const n = { ...prev }; delete n[itemId]; return n; });
+    setActualValues((prev) => { const n = { ...prev }; delete n[itemId]; return n; });
+    setActualDates((prev)  => { const n = { ...prev }; delete n[itemId]; return n; });
   }, []);
 
   const restoreItem = useCallback((groupId, index, item, value, date, kind) => {
@@ -269,6 +315,8 @@ export function usePayments() {
         setValues((v)  => { const n = { ...v }; ids.forEach((id) => delete n[id]); return n; });
         setKinds((k)   => { const n = { ...k }; ids.forEach((id) => delete n[id]); return n; });
         setDates((d)   => { const n = { ...d }; ids.forEach((id) => delete n[id]); return n; });
+        setActualValues((v) => { const n = { ...v }; ids.forEach((id) => delete n[id]); return n; });
+        setActualDates((d)  => { const n = { ...d }; ids.forEach((id) => delete n[id]); return n; });
       }
       return prev.filter((g) => g.id !== groupId);
     });
@@ -311,6 +359,8 @@ export function usePayments() {
     values, setItemValue,
     kinds, setItemKind,
     dates, setItemDate,
+    actualValues, setItemActualValue,
+    actualDates, setItemActualDate,
     lastResets, resetGroup,
     openingBalances, setGroupOpeningBalance,
     addItem, removeItem, restoreItem, renameItem,

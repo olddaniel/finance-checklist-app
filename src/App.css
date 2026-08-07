@@ -838,6 +838,7 @@
 .item-outer.item-checked .item-value-prefix,
 .item-outer.item-checked .item-value-input { color: var(--text-done); }
 
+
 /* ── Money direction on each row ── */
 /* Revenue is the exception, so it gets the rail; expense is the default. */
 .item-outer.item-revenue .item { box-shadow: inset 2px 0 0 var(--revenue); }

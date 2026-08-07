@@ -49,6 +49,7 @@ export default function PaymentGroup({
   group, checked, onToggle, onReset,
   snoozed, onToggleSnooze,
   values, onValueChange,
+  actualValues = {},
   kinds, onOpenDetails,
   dates, onDateChange,
   lastReset,
@@ -400,6 +401,7 @@ export default function PaymentGroup({
               onToggleSnooze={() => onToggleSnooze(item.id)}
               value={values[item.id] || ""}
               onValueChange={(val) => onValueChange(item.id, val)}
+              actualValue={actualValues[item.id]}
               dueDate={dates[item.id] ?? null}
               onDateChange={(val) => onDateChange(item.id, val)}
               dateMode={group.dateMode}

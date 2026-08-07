@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { MONTHS, REVENUE } from "../utils";
+import { MONTHS, REVENUE, formatBRLAlways } from "../utils";
 
 // Distance (px) at which the action commits on release
 const THRESHOLD = 80;
@@ -28,12 +28,16 @@ export default function CheckboxItem({
   label, checked, onChange,
   snoozed, onToggleSnooze,
   value, onValueChange,
+  actualValue,
   dueDate, onDateChange,
   dateMode = "days",
   kind, onOpenDetails,
   onRemove, onRename,
 }) {
   const isRevenue = kind === REVENUE;
+  // Only worth two numbers when they disagree; a realised value equal to the
+  // plan is already on screen, and a row with none stays as it was.
+  const showActual = actualValue != null && Number(actualValue) !== (Number(value) || 0);
   // ── Swipe ──
   const [offset,  setOffset]  = useState(0);
   const [animate, setAnimate] = useState(false);
@@ -96,7 +100,7 @@ export default function CheckboxItem({
   const dirClass = swipingRight ? " swiping-right" : swipingLeft ? " swiping-left" : "";
 
   return (
-    <li className={`item-outer${checked ? " item-checked" : ""}${snoozed ? " item-snoozed" : ""}${isRevenue ? " item-revenue" : ""}${dirClass}`}>
+    <li className={`item-outer${checked ? " item-checked" : ""}${snoozed ? " item-snoozed" : ""}${isRevenue ? " item-revenue" : ""}${showActual ? " item-has-actual" : ""}${dirClass}`}>
       {/* Snooze zone — fills container, revealed when row slides right */}
       <button
         className={`item-snooze-zone${snoozed ? " active" : ""}${overThreshold && swipingRight ? " over-threshold" : ""}`}
@@ -179,6 +183,12 @@ export default function CheckboxItem({
               aria-label={`Valor estimado: ${label}`}
             />
           </span>
+
+          {showActual && (
+            <span className="item-actual" title="Valor realizado">
+              {formatBRLAlways(actualValue)}
+            </span>
+          )}
 
           {dateMode !== "none" && (
             <select

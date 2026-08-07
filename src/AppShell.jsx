@@ -27,6 +27,8 @@ function AppShell({ store, account }) {
     values, setItemValue,
     kinds, setItemKind,
     dates, setItemDate,
+    actualValues, setItemActualValue,
+    actualDates, setItemActualDate,
     lastResets, resetGroup,
     openingBalances, setGroupOpeningBalance,
     addItem, removeItem, restoreItem, renameItem,
@@ -234,6 +236,7 @@ function AppShell({ store, account }) {
       snoozed, onToggleSnooze: (id) => handleToggleSnooze(id),
       onReset: () => resetGroup(group.id),
       values, onValueChange: setItemValue,
+      actualValues,
       kinds,  onOpenDetails: (itemId) => setDetailItemId(itemId),
       dates,  onDateChange:  setItemDate,
       lastReset: lastResets[group.id] ?? null,
@@ -392,12 +395,16 @@ function AppShell({ store, account }) {
           snoozed={!!snoozed[detail.item.id]}
           value={values[detail.item.id] || ""}
           dueDate={dates[detail.item.id] ?? null}
+          actualValue={actualValues[detail.item.id]}
+          actualDate={actualDates[detail.item.id]}
           onClose={() => setDetailItemId(null)}
           onToggleChecked={() => handleToggle(detail.item.id)}
           onToggleSnooze={() => handleToggleSnooze(detail.item.id)}
           onKindChange={(kind) => setItemKind(detail.item.id, kind)}
           onValueChange={(val) => setItemValue(detail.item.id, val)}
           onDateChange={(val) => setItemDate(detail.item.id, val)}
+          onActualValueChange={(val) => setItemActualValue(detail.item.id, val)}
+          onActualDateChange={(val) => setItemActualDate(detail.item.id, val)}
           onRename={(label) => renameItem(detail.group.id, detail.item.id, label)}
           onRemove={() => {
             handleRemoveItem(detail.group.id, detail.item.id);

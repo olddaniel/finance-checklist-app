@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { MONTHS, EXPENSE, REVENUE, formatBRLAlways } from "../utils";
+import { MONTHS, EXPENSE, REVENUE, formatBRLAlways, formatBRLSigned } from "../utils";
 
 export default function ItemDetailModal({
   groupTitle,
@@ -10,12 +10,16 @@ export default function ItemDetailModal({
   snoozed,
   value,
   dueDate,
+  actualValue,
+  actualDate,
   onClose,
   onToggleChecked,
   onToggleSnooze,
   onKindChange,
   onValueChange,
   onDateChange,
+  onActualValueChange,
+  onActualDateChange,
   onRename,
   onRemove,
 }) {
@@ -36,6 +40,12 @@ export default function ItemDetailModal({
   }, [onClose]);
 
   const isRevenue = kind === REVENUE;
+
+  // null when nothing was realised or it matched the plan — there is only
+  // something to report when the two disagree.
+  const diff = actualValue == null || actualValue === ""
+    ? null
+    : (Number(actualValue) - (Number(value) || 0)) || null;
 
   function commitName() {
     const t = draft.trim();
@@ -162,6 +172,36 @@ export default function ItemDetailModal({
               </button>
             </div>
           </div>
+
+          {/* What actually happened. Secondary to the planned pair above, which
+              these never overwrite. Empty = ainda não realizado. */}
+          <div className="modal-field secondary">
+            <span className="modal-field-label">Valor realizado</span>
+            <span className="modal-value-wrapper">
+              <span className="modal-value-prefix">R$</span>
+              <input
+                type="number"
+                className="modal-value-input actual"
+                min="0" step="0.01"
+                value={actualValue ?? ""}
+                onChange={(e) => onActualValueChange(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") e.target.blur(); }}
+                placeholder="—"
+                aria-label="Valor realizado"
+              />
+            </span>
+          </div>
+
+          <div className="modal-field secondary">
+            <span className="modal-field-label">Data realizada</span>
+            <input
+              type="date"
+              className={`modal-actual-date-input${actualDate ? " has-value" : ""}`}
+              value={actualDate ?? ""}
+              onChange={(e) => onActualDateChange(e.target.value)}
+              aria-label="Data realizada"
+            />
+          </div>
         </div>
 
         <p className="modal-note">
@@ -170,6 +210,9 @@ export default function ItemDetailModal({
             : isRevenue
               ? `Entra como receita ${checked ? "executada" : "planejada"} de ${formatBRLAlways(value)}.`
               : `Entra como despesa ${checked ? "executada" : "planejada"} de ${formatBRLAlways(value)}.`}
+          {!snoozed && diff !== null && (
+            <> {` Realizado ${formatBRLAlways(actualValue)} — ${formatBRLSigned(diff)} em relação ao previsto.`}</>
+          )}
         </p>
 
         <div className="modal-actions">

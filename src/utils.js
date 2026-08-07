@@ -26,6 +26,19 @@ export function formatBRLSigned(value) {
 
 export const MONTHS = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
 
+// ── Realised dates ──
+// Stored as a real calendar date ("YYYY-MM-DD"), not a day number: the plan is
+// moving to real months, and a bank transaction that later fills this in carries
+// a full date.
+
+// toISOString() would report tomorrow from 21h onwards in Brazil, so the local
+// calendar fields are read directly.
+export function todayISO() {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 // ── Item kind (expense | revenue) ──
 export const EXPENSE = "expense";
 export const REVENUE = "revenue";
