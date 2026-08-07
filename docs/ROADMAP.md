@@ -230,6 +230,48 @@ What the three tracks exist to produce is two sentences:
 >
 > *No dia 23 você fica em R$-410 — resgate R$1.000 até o dia 21.*
 
+### Two dates, never an edited one
+
+Dashplan lets you edit a transaction's date, which breaks reconciliation but solves a
+real problem: a salary that lands on the 1st when it belonged to the month before.
+The field is being asked to mean two things. Split it instead:
+
+- `data` — when the money moved. From the bank, **never editable**.
+- `competência` — which month the event belongs to. Editable, defaults to `data`.
+
+Caixa reads `data`, so the projection stays true to the bank. Gastos e renda read
+`competência`, so August's pay counts in August. Nothing is falsified; both facts
+survive.
+
+Guards: shift only to an adjacent month, and if the target month is closed, say so
+before restating it. And it is proposed rather than typed — recurring detection
+already knows the salary lands around the 30th, so a payment on the 1st asks
+*"Salário caiu dia 01/09. Contar em agosto?"*
+
+Related to the card's purchase-vs-fatura split but not the same mechanism: the card
+is two linked rows resolved by the two flags, this is two dates on one row. The
+shared idea is that **when money moves and which period it belongs to are separate
+facts.**
+
+### One-off planned events
+
+A planned instance does not have to come from a recurring definition. An `avulso`
+belongs to a single month — due date, expected amount, both flags, a status — and
+appears in that month's projection and nowhere else.
+
+This fixes a v1 flaw rather than inheriting it: today `addItem` puts a row in a group
+permanently, so a one-off dentist visit reappears every month until it is deleted.
+
+It also gains three things. It can be placed in a *future* month, so January's IPVA
+is visible from August — unrepresentable in v1, which has no month identity. It
+auto-ticks like any other planned row. And if it recurs, the app offers to promote
+it: *"virou conta fixa? repetir todo mês?"* rather than requiring foresight.
+
+Note that inserting a provisional one-off is the same mechanism as *"posso comprar?"*
+— asking whether something is affordable is adding a planned expense and reading the
+projection. One code path, two doors: one keeps the row, one discards it after
+showing the answer.
+
 ## Propose, don't ask
 
 Three unrelated products converge on one idea, and it is the difference between this
