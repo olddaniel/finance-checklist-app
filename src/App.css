@@ -1140,6 +1140,33 @@
   &:hover { opacity: 0.75; }
 }
 
+/* Sits past the undo button, behind a rule, so the toast still reads as
+   message-then-undo and the hint is only picked up if the eye keeps going */
+.toast-hint {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--text-muted);
+  border-left: 1px solid var(--border);
+  padding-left: 12px;
+}
+
+.toast-hint kbd {
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--text);
+  /* The toast itself is --surface-hover, so the chip lifts off it either way */
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-sm);
+  padding: 3px 5px;
+}
+
 .toast-progress {
   position: absolute;
   bottom: 0;
