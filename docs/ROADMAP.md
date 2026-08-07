@@ -89,12 +89,18 @@ Agreed, and binding on everything below.
    Dashplan never made.
 6. **Money that isn't spending is invisible by default.** Two-sided transfer
    detection; investments route to Patrimônio. Never announce that someone spent
-   R$40 mil because they moved money between their own accounts.
+   R$40 mil because they moved money between their own accounts. Dashplan's name for
+   this is *classificação neutra* — good pt-BR, already familiar, adopted as-is.
 7. **Purchase date and invoice date are both kept.** A card purchase on 28 August is
    paid on 10 September. Cash flow cares about the 10th; spending analysis cares
    about the 28th. The fatura is one planned row on the daily screen; its purchases
    live at their own dates. Most Brazilian apps pick one and confuse the user
    permanently. This is the biggest structural decision in the app.
+
+   Dashplan picks purchase date and neutralises the fatura payment, which is correct
+   for analysis — and is precisely why it cannot do forward cash flow at all: under
+   that model the money never leaves the account on any day. Keeping both timelines
+   is what lets one app do both jobs.
 8. **Patrimônio runs on a different clock.** A monthly screen: one number
    (ativos − passivos), one trend, and the split that matters — gerador de renda vs
    uso pessoal. Kept out of the daily view.
@@ -113,10 +119,66 @@ Two more, carried from the research:
 12. **Never derive a balance by summing transactions.** Show the provider's balance
     with its own timestamp; if the sum disagrees, surface the delta.
 
+## The category model
+
+Dashplan's best idea and its worst execution live in the same place, so this deserves
+spelling out.
+
+**The good idea: a classification layer above categories.** It produces the single
+most useful number in the tool — *29,2% obrigatórias, 70,8% não obrigatórias*. That
+is not "how much on groceries", it is **how much of my spending could I stop
+tomorrow**, which is pain #3 asked from the other side.
+
+**The execution fails in two ways.**
+
+*It cannot be edited.* In August, `Presentes e doações` is R$2.558,43 — 63% of
+everything Dashplan calls non-obligatory — against a ledger showing Igreja Batista
+Fonte, Young Life and Missão Joy every month. Whether giving is discretionary is not
+the tool's call, and it cannot be changed. One locked decision makes the best number
+on the screen wrong.
+
+*The picker makes you choose a classification tab before you can search.* But the
+nine tabs mix four unrelated axes — direction (renda vs despesa), discretion
+(obrigatória vs não), nature (neutra, investimento, financiamento) and context
+(empresa vs pessoal). Finding a category means first guessing which question it was
+filed under. That is a taxonomy problem wearing a search box.
+
+**Our model.** One flat list, search-first, no tabs. Classification is a *property*
+of the category, set at creation, never a navigation layer. A category carries:
+
+- `kind` — `renda` | `despesa` | `neutra` | `patrimonial`
+- `essencial` — the obrigatória flag, on despesas, Daniel's to set
+- `scope` — `pessoal` | `empresa`, because business-vs-personal is a partition, not a
+  category group
+- name, icon
+
+Creatable, editable and deletable — with *"mover 37 lançamentos para…"* on delete.
+When a search matches nothing, the last row is **"Criar categoria «…»"**, which is
+the thing Dashplan cannot do at all.
+
+Vocabulary is taken from Dashplan where it is already good: *classificação neutra*,
+*despesas obrigatórias / não obrigatórias*, *transferência mesma titularidade*.
+
+## Evidence: the Estabelecimento column
+
+In Dashplan the `Estabelecimento` column is empty on nearly every row —
+`MERCADOLIVRE*FAVITACO` shows `–`. The same transaction in our own `pluggy_raw`
+resolves to `MERCADOLIVRE.COM ATIVIDADES DE INTERNET LTDA`.
+
+The data is delivered. Dashplan reads one field where the fallback chain is
+`merchant.name` → `merchant.businessName` → `paymentData.receiver.name` → normalised
+`descriptionRaw`. The recategorisation treadmill is a bug in a reader, not a limit of
+Open Finance — which is the whole reason this project is worth building.
+
 ## Not building
 
 Charts as decoration, calendars, receipt capture, push reminders, goals and
 gamification, envelope budgeting. Each costs a screen and none was ever wanted.
+
+Specifically dropped after reviewing Dashplan: the permanent "Atualizar token"
+banner (principle 11 replaces it), and the investment goal bar that reads
+*"0,6% — falta investir R$4.970"* on the 7th of the month. That is nagging, not
+information.
 
 ## Sequence
 
