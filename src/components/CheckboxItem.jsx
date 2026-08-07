@@ -32,12 +32,16 @@ export default function CheckboxItem({
   dateMode = "days",
   kind, onOpenDetails,
   onRemove, onRename,
+  focused = false,
 }) {
   const isRevenue = kind === REVENUE;
   // ── Swipe ──
+  // Pointer events, not touch events: a mouse never fires touchstart/touchmove,
+  // which is why the row gesture only ever worked on a phone. This is the same
+  // mechanism the group drag handle already uses.
   const [offset,  setOffset]  = useState(0);
   const [animate, setAnimate] = useState(false);
-  const touch = useRef({ x: 0, y: 0, dir: null });
+  const drag = useRef({ id: null, x: 0, y: 0, dir: null });
 
   const overThreshold = Math.abs(offset) >= THRESHOLD;
   const swipingLeft   = offset < -2;
@@ -45,18 +49,26 @@ export default function CheckboxItem({
 
   function snap(x) { setAnimate(true); setOffset(x); }
 
-  function handleTouchStart(e) {
-    touch.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, dir: null };
+  function handlePointerDown(e) {
+    // Left button only, and never on the controls the row carries — those own
+    // their own pointer behaviour (caret placement, native select, tap targets).
+    if (e.button !== 0) return;
+    if (e.target.closest("input, select, textarea, button")) return;
+    drag.current = { id: e.pointerId, x: e.clientX, y: e.clientY, dir: null };
     setAnimate(false);
   }
-  function handleTouchMove(e) {
-    const dx = e.touches[0].clientX - touch.current.x;
-    const dy = e.touches[0].clientY - touch.current.y;
-    if (touch.current.dir === null) {
+  function handlePointerMove(e) {
+    if (drag.current.id !== e.pointerId) return;
+    const dx = e.clientX - drag.current.x;
+    const dy = e.clientY - drag.current.y;
+    if (drag.current.dir === null) {
       if (Math.abs(dx) < 5 && Math.abs(dy) < 5) return;
-      touch.current.dir = Math.abs(dx) >= Math.abs(dy) ? "h" : "v";
+      drag.current.dir = Math.abs(dx) >= Math.abs(dy) ? "h" : "v";
+      // Once the gesture is ours, capture it so it survives the pointer leaving
+      // the row. Touch gets this implicitly from the browser; a mouse does not.
+      if (drag.current.dir === "h") e.currentTarget.setPointerCapture(e.pointerId);
     }
-    if (touch.current.dir !== "h") return;
+    if (drag.current.dir !== "h") return;
     // Free movement up to THRESHOLD, then rubber-band resistance
     let next;
     if      (dx < -THRESHOLD) next = -THRESHOLD + (dx + THRESHOLD) * BAND;
@@ -64,19 +76,36 @@ export default function CheckboxItem({
     else                      next = dx;
     setOffset(next);
   }
-  function handleTouchEnd() {
-    if (touch.current.dir !== "h") return;
+  function handlePointerUp(e) {
+    if (drag.current.id !== e.pointerId) return;
+    drag.current.id = null;
+    if (drag.current.dir !== "h") return;
     if      (offset <= -THRESHOLD) { snap(0); onRemove(); }
     else if (offset >=  THRESHOLD) { snap(0); onToggleSnooze(); }
     else                           { snap(0); }
   }
+  function handlePointerCancel() {
+    drag.current = { id: null, x: 0, y: 0, dir: null };
+    snap(0);
+  }
 
-  // Tapping the row anywhere other than the checkbox, the label, the value or
-  // the day opens the detail modal. Swipes must not count as taps.
+  // Clicking the row anywhere other than the checkbox, the label, the value or
+  // the day opens the detail modal. Swipes must not count as clicks — `dir`
+  // survives until the next pointerdown, which is after the click.
   function handleRowClick() {
-    if (touch.current.dir === "h" || offset !== 0) return;
+    if (drag.current.dir === "h" || offset !== 0) return;
     onOpenDetails?.();
   }
+
+  // ── Keyboard focus cursor ──
+  // Only the focused row is tabbable, so Tab reaches the cursor rather than
+  // every bill in the list.
+  const rowRef = useRef(null);
+  useEffect(() => {
+    if (!focused) return;
+    rowRef.current?.focus({ preventScroll: true });
+    rowRef.current?.scrollIntoView({ block: "nearest" });
+  }, [focused]);
 
   // ── Edit ──
   const [editing, setEditing] = useState(false);
@@ -96,7 +125,7 @@ export default function CheckboxItem({
   const dirClass = swipingRight ? " swiping-right" : swipingLeft ? " swiping-left" : "";
 
   return (
-    <li className={`item-outer${checked ? " item-checked" : ""}${snoozed ? " item-snoozed" : ""}${isRevenue ? " item-revenue" : ""}${dirClass}`}>
+    <li className={`item-outer${checked ? " item-checked" : ""}${snoozed ? " item-snoozed" : ""}${isRevenue ? " item-revenue" : ""}${focused ? " item-focused" : ""}${dirClass}`}>
       {/* Snooze zone — fills container, revealed when row slides right */}
       <button
         className={`item-snooze-zone${snoozed ? " active" : ""}${overThreshold && swipingRight ? " over-threshold" : ""}`}
@@ -118,12 +147,16 @@ export default function CheckboxItem({
       </button>
 
       <div
+        ref={rowRef}
         className="item"
         style={{ transform: `translateX(${offset}px)`, transition: animate ? "transform 0.22s ease" : "none" }}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerCancel}
         onClick={handleRowClick}
+        tabIndex={focused ? 0 : -1}
+        aria-current={focused ? "true" : undefined}
       >
         <button
           className={`item-checkbox${checked ? " checked" : ""}${snoozed ? " snoozed" : ""}`}

@@ -187,6 +187,28 @@ export function useCloudPayments(session, onError) {
     writeItem(itemId), [itemId]
   ), [commit]);
 
+  // Reordering changes every following position, so the whole group is written
+  // back rather than the single row that moved.
+  const moveItem = useCallback((groupId, itemId, delta) => commit(
+    (s) => ({ ...s, groups: s.groups.map((g) => {
+      if (g.id !== groupId) return g;
+      const from = g.items.findIndex((i) => i.id === itemId);
+      const to   = from + delta;
+      if (from === -1 || to < 0 || to >= g.items.length) return g;
+      const items = [...g.items];
+      items.splice(to, 0, items.splice(from, 1)[0]);
+      return { ...g, items };
+    }) }),
+    (next) => {
+      const group = next.groups.find((g) => g.id === groupId);
+      if (!group) return Promise.resolve({ error: null });
+      return supabase.from("items").upsert(
+        group.items.map((item, index) => itemToRow(item, groupId, index, next))
+      );
+    },
+    [itemId]
+  ), [commit]);
+
   const addItem = useCallback((groupId, label) => {
     const id = newId(`${groupId}_`);
     return commit(
@@ -357,7 +379,7 @@ export function useCloudPayments(session, onError) {
     ...state,
     collapsedGroups, toggleGroupCollapsed, collapseAllGroups,
     toggle, toggleSnooze, setItemValue, setItemKind, setItemDate,
-    addItem, removeItem, restoreItem, renameItem,
+    addItem, removeItem, restoreItem, renameItem, moveItem,
     addGroup, removeGroup, renameGroup, changeGroupDateMode, applyGroupOrder,
     setGroupOpeningBalance, resetGroup, setSortMode,
     exportState, replaceAll,

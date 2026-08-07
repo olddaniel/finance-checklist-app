@@ -2,8 +2,9 @@ import { useState, useRef, useMemo, useEffect } from "react";
 import PaymentGroup from "./components/PaymentGroup";
 import ItemDetailModal from "./components/ItemDetailModal";
 import DataSheet from "./components/DataSheet";
+import ShortcutSheet from "./components/ShortcutSheet";
 import Toast from "./components/Toast";
-import { kindOf, REVENUE } from "./utils";
+import { kindOf, displayItemsOf, REVENUE } from "./utils";
 import "./App.css";
 
 const SORT_CYCLE     = ["manual", "value", "date"];
@@ -29,7 +30,7 @@ function AppShell({ store, account }) {
     dates, setItemDate,
     lastResets, resetGroup,
     openingBalances, setGroupOpeningBalance,
-    addItem, removeItem, restoreItem, renameItem,
+    addItem, removeItem, restoreItem, renameItem, moveItem,
     sortMode, setSortMode,
     collapsedGroups, toggleGroupCollapsed, collapseAllGroups,
     addGroup, removeGroup, renameGroup, changeGroupDateMode, applyGroupOrder,
@@ -37,9 +38,14 @@ function AppShell({ store, account }) {
   } = store;
 
   const [dataSheetOpen, setDataSheetOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   // Row detail modal — holds the id so the modal follows live state updates
   const [detailItemId, setDetailItemId] = useState(null);
+
+  // Keyboard cursor: the row the arrow keys act on. Null until a key is pressed,
+  // so a phone never grows a focus ring it has no way to move.
+  const [focusItemId, setFocusItemId] = useState(null);
 
   const [addingGroup, setAddingGroup] = useState(false);
   const [newGroupLabel, setNewGroupLabel] = useState("");
@@ -190,6 +196,90 @@ function AppShell({ store, account }) {
     }
   }
 
+  // ── Keyboard: the review cursor ──
+  // Every row currently on screen, in the order it appears. A closed group and
+  // the balance view contribute nothing, which is what makes ↓ skip them.
+  const navItems = useMemo(() => {
+    const rows = [];
+    for (const group of groups) {
+      const viewState = collapsedGroups[group.id] ?? "open";
+      if (viewState === "closed" || viewState === "balance") continue;
+      for (const item of displayItemsOf(group, { viewState, sortMode, values, dates, checked, snoozed })) {
+        rows.push({ groupId: group.id, itemId: item.id });
+      }
+    }
+    return rows;
+  }, [groups, collapsedGroups, sortMode, values, dates, checked, snoozed]);
+
+  // Collapsing a group — or ticking a row in semi mode — takes the cursor's row
+  // off the screen, so the cursor is resolved against the visible list on every
+  // render instead of being stored. It can never point at something invisible,
+  // and re-opening the group hands it back.
+  const focusIndex   = navItems.findIndex((n) => n.itemId === focusItemId);
+  const focusedRow   = focusIndex === -1 ? null : navItems[focusIndex];
+
+  function handleShortcut(e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+    const el = e.target;
+    const typing = el instanceof HTMLElement &&
+      (el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName));
+
+    // Esc is the only key with a meaning while something is open, and even then
+    // it belongs to the field being typed into before it belongs to us.
+    if (e.key === "Escape") {
+      if (typing) return;
+      if (shortcutsOpen) { setShortcutsOpen(false); return; }
+      if (detailItemId || dataSheetOpen) return;  // each sheet closes itself
+      setFocusItemId(null);
+      return;
+    }
+
+    // Never take a keystroke away from a field or from an open sheet
+    if (typing || detailItemId || dataSheetOpen || shortcutsOpen) return;
+
+    const current = focusedRow;
+    const down    = e.key === "ArrowDown" || e.key === "j";
+    const up      = e.key === "ArrowUp"   || e.key === "k";
+
+    if ((down || up) && e.shiftKey) {
+      if (!current) return;
+      e.preventDefault();
+      // Sorting by value or date overrides the stored order, so a move there
+      // would look like nothing happened.
+      if (sortMode !== "manual") {
+        showToast("Para reordenar, volte à ordenação manual", null);
+        return;
+      }
+      moveItem(current.groupId, current.itemId, down ? 1 : -1);
+      return;
+    }
+
+    if (down || up) {
+      if (navItems.length === 0) return;
+      e.preventDefault();
+      const next = focusIndex === -1
+        ? (down ? 0 : navItems.length - 1)
+        : Math.min(navItems.length - 1, Math.max(0, focusIndex + (down ? 1 : -1)));
+      setFocusItemId(navItems[next].itemId);
+      return;
+    }
+
+    if (e.key === " ")     { if (current) { e.preventDefault(); handleToggle(current.itemId); } return; }
+    if (e.key === "Enter") { if (current) { e.preventDefault(); setDetailItemId(current.itemId); } return; }
+    if (e.key === "?")     { e.preventDefault(); setShortcutsOpen(true); }
+  }
+
+  // The handler closes over state that changes on nearly every keystroke, so it
+  // is kept in a ref and the listener is attached once.
+  const shortcutRef = useRef(null);
+  useEffect(() => { shortcutRef.current = handleShortcut; });
+  useEffect(() => {
+    function onKeyDown(e) { shortcutRef.current?.(e); }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   // ── Backup ──
   function handleExport() {
     const json = JSON.stringify(exportState(), null, 2);
@@ -245,6 +335,7 @@ function AppShell({ store, account }) {
       sortMode,
       viewState:          collapsedGroups[group.id] ?? "open",
       onToggleCollapsed:  (skips) => toggleGroupCollapsed(group.id, skips),
+      focusItemId:        focusedRow?.itemId ?? null,
       onRemoveGroup:      () => removeGroup(group.id),
       onRenameGroup:      (t) => renameGroup(group.id, t),
       onChangeDateMode:   (m) => changeGroupDateMode(group.id, m),
@@ -273,6 +364,13 @@ function AppShell({ store, account }) {
               title={account.status === "saving" ? "Salvando..." : "Erro ao salvar — tocar para recarregar"}
             />
           )}
+          {/* The sheet has to be reachable without knowing the key that opens it */}
+          <button
+            className="sort-btn shortcuts-btn"
+            onClick={() => setShortcutsOpen(true)}
+            aria-label="Atalhos do teclado"
+            title="Atalhos do teclado"
+          >?</button>
           <button
             className={`sort-btn${sortMode !== "manual" ? " active" : ""}`}
             onClick={cycleSortMode}
@@ -358,6 +456,7 @@ function AppShell({ store, account }) {
             groupRef={null}
             onDragStart={NOOP}
             isDragging={true}
+            focusItemId={null}
             viewState="closed"
             onToggle={NOOP} onToggleSnooze={NOOP}
             onReset={NOOP}  onValueChange={NOOP} onDateChange={NOOP}
@@ -379,6 +478,8 @@ function AppShell({ store, account }) {
           account={account}
         />
       )}
+
+      {shortcutsOpen && <ShortcutSheet onClose={() => setShortcutsOpen(false)} />}
 
       {/* Row detail modal */}
       {detail && (
