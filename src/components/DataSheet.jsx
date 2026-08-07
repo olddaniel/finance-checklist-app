@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import PluggyConnections from "./PluggyConnections";
+import { getTheme, setTheme } from "../lib/theme";
 
 // A backup is anything that parses as JSON and carries a groups array — that
 // covers files this app exported and raw localStorage blobs copied by hand.
@@ -26,7 +27,13 @@ function formatStamp(iso) {
 export default function DataSheet({ groupCount, itemCount, onClose, onExport, onImport, account }) {
   const [pending, setPending] = useState(null);
   const [error,   setError]   = useState(null);
+  const [theme,   setThemeState] = useState(getTheme);
   const fileRef = useRef(null);
+
+  function pickTheme(next) {
+    setTheme(next);
+    setThemeState(next);
+  }
 
   useEffect(() => {
     function onKey(e) { if (e.key === "Escape") onClose(); }
@@ -97,6 +104,28 @@ export default function DataSheet({ groupCount, itemCount, onClose, onExport, on
             </button>
           </div>
         )}
+
+        <div className="modal-field">
+          <span className="modal-field-label">Tema</span>
+          <div className="modal-toggle-group">
+            <button
+              className={`modal-toggle-btn theme${theme === "light" ? " active" : ""}`}
+              onClick={() => pickTheme("light")}
+              type="button"
+              aria-pressed={theme === "light"}
+            >
+              Claro
+            </button>
+            <button
+              className={`modal-toggle-btn theme${theme === "dark" ? " active" : ""}`}
+              onClick={() => pickTheme("dark")}
+              type="button"
+              aria-pressed={theme === "dark"}
+            >
+              Escuro
+            </button>
+          </div>
+        </div>
 
         {!pending && (
           <>
