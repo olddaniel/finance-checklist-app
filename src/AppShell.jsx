@@ -340,6 +340,7 @@ function AppShell({ store, account }) {
       onAddItem:    (label) => addItem(group.id, label),
       onRemoveItem: (itemId) => handleRemoveItem(group.id, itemId),
       onRenameItem: (itemId, label) => renameItem(group.id, itemId, label),
+      onMoveItem:   (itemId, delta) => moveItem(group.id, itemId, delta),
       sortMode,
       viewState:          collapsedGroups[group.id] ?? "open",
       onToggleCollapsed:  (skips) => toggleGroupCollapsed(group.id, skips),
@@ -479,7 +480,7 @@ function AppShell({ store, account }) {
             viewState="closed"
             onToggle={NOOP} onToggleSnooze={NOOP}
             onReset={NOOP}  onValueChange={NOOP} onDateChange={NOOP}
-            onAddItem={NOOP} onRemoveItem={NOOP} onRenameItem={NOOP}
+            onAddItem={NOOP} onRemoveItem={NOOP} onRenameItem={NOOP} onMoveItem={NOOP}
             onToggleCollapsed={NOOP} onRemoveGroup={NOOP}
             onRenameGroup={NOOP}    onChangeDateMode={NOOP}
             onOpenDetails={NOOP}    onOpeningBalanceChange={NOOP}

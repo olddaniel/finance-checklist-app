@@ -24,6 +24,20 @@ function SnoozeIcon() {
   );
 }
 
+// Same glyph as the group handle, so the two reorder gestures read as one idea
+function DragHandleIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+      <circle cx="4" cy="3" r="1" fill="currentColor"/>
+      <circle cx="8" cy="3" r="1" fill="currentColor"/>
+      <circle cx="4" cy="6" r="1" fill="currentColor"/>
+      <circle cx="8" cy="6" r="1" fill="currentColor"/>
+      <circle cx="4" cy="9" r="1" fill="currentColor"/>
+      <circle cx="8" cy="9" r="1" fill="currentColor"/>
+    </svg>
+  );
+}
+
 export default function CheckboxItem({
   label, checked, onChange,
   snoozed, onToggleSnooze,
@@ -33,6 +47,7 @@ export default function CheckboxItem({
   dateMode = "days",
   kind, onOpenDetails,
   onRemove, onRename,
+  onMove = null,
   focused = false,
 }) {
   const isRevenue = kind === REVENUE;
@@ -93,6 +108,52 @@ export default function CheckboxItem({
     snap(0);
   }
 
+  // ── Reorder drag ──
+  // The handle only exists under manual sorting. It walks the row one slot at a
+  // time through the same `moveItem` the Shift+↑/↓ shortcut uses, rather than
+  // computing a drop index: every row the finger passes is a committed move, so
+  // the list under the finger is always the real order.
+  const [reordering, setReordering] = useState(false);
+
+  // Every move re-sorts the group, so the handler must never call the `onMove`
+  // it closed over at pointerdown — that one still points at the old order.
+  const onMoveRef = useRef(onMove);
+  useEffect(() => { onMoveRef.current = onMove; });
+
+  function handleHandlePointerDown(e) {
+    if (e.button !== 0) return;
+    e.preventDefault();   // no text selection, no native image drag
+    e.stopPropagation();  // the swipe must not claim this pointer as well
+
+    // One row of travel = one slot, measured off the outer li so the divider
+    // counts. Listeners go on the window rather than using pointer capture:
+    // reordering moves this very node in the DOM, which releases the capture
+    // and would end the drag after a single slot. Attached synchronously, the
+    // same way the group drag does it.
+    const step = e.currentTarget.closest(".item-outer")?.getBoundingClientRect().height || 44;
+    let originY = e.clientY;
+
+    function onPointerMove(ev) {
+      if (ev.cancelable) ev.preventDefault();
+      const dy = ev.clientY - originY;
+      if (Math.abs(dy) < step) return;
+      const dir = dy > 0 ? 1 : -1;
+      originY += dir * step;  // consume exactly one slot, keep the remainder
+      onMoveRef.current?.(dir);
+    }
+    function onEnd() {
+      window.removeEventListener("pointermove",   onPointerMove);
+      window.removeEventListener("pointerup",     onEnd);
+      window.removeEventListener("pointercancel", onEnd);
+      setReordering(false);
+    }
+
+    window.addEventListener("pointermove",   onPointerMove, { passive: false });
+    window.addEventListener("pointerup",     onEnd);
+    window.addEventListener("pointercancel", onEnd);
+    setReordering(true);
+  }
+
   // Clicking the row anywhere other than the checkbox, the label, the value or
   // the day opens the detail modal. Swipes must not count as clicks — `dir`
   // survives until the next pointerdown, which is after the click.
@@ -129,7 +190,7 @@ export default function CheckboxItem({
   const dirClass = swipingRight ? " swiping-right" : swipingLeft ? " swiping-left" : "";
 
   return (
-    <li className={`item-outer${checked ? " item-checked" : ""}${snoozed ? " item-snoozed" : ""}${isRevenue ? " item-revenue" : ""}${showActual ? " item-has-actual" : ""}${focused ? " item-focused" : ""}${dirClass}`}>
+    <li className={`item-outer${checked ? " item-checked" : ""}${snoozed ? " item-snoozed" : ""}${isRevenue ? " item-revenue" : ""}${showActual ? " item-has-actual" : ""}${focused ? " item-focused" : ""}${reordering ? " item-reordering" : ""}${dirClass}`}>
       {/* Snooze zone — fills container, revealed when row slides right */}
       <button
         className={`item-snooze-zone${snoozed ? " active" : ""}${overThreshold && swipingRight ? " over-threshold" : ""}`}
@@ -162,6 +223,19 @@ export default function CheckboxItem({
         tabIndex={focused ? 0 : -1}
         aria-current={focused ? "true" : undefined}
       >
+        {onMove && (
+          <span
+            className="item-drag-handle"
+            onPointerDown={handleHandlePointerDown}
+            onClick={(e) => e.stopPropagation()}
+            onContextMenu={(e) => e.preventDefault()}
+            role="button"
+            aria-label={`Arrastar para reordenar ${label}`}
+          >
+            <DragHandleIcon />
+          </span>
+        )}
+
         <button
           className={`item-checkbox${checked ? " checked" : ""}${snoozed ? " snoozed" : ""}`}
           onClick={(e) => { e.stopPropagation(); onChange(); }}

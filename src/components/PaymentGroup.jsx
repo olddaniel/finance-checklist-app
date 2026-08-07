@@ -54,7 +54,7 @@ export default function PaymentGroup({
   dates, onDateChange,
   lastReset,
   openingBalance = 0, onOpeningBalanceChange,
-  onAddItem, onRemoveItem, onRenameItem,
+  onAddItem, onRemoveItem, onRenameItem, onMoveItem,
   sortMode,
   viewState = "open",
   onToggleCollapsed,
@@ -121,11 +121,39 @@ export default function PaymentGroup({
   const isOpen    = viewState === "open";
   const isBalance = viewState === "balance";
 
+  // The pencil exists only in the fully-expanded view, so a view change under an
+  // open panel would strand it with nothing left on screen to close it. Derived
+  // for the render, and cleared as state as well so re-expanding the group comes
+  // back closed rather than resuming a half-typed rename.
+  const editPanelOpen = isEditing && isOpen;
+  const [editingView, setEditingView] = useState(viewState);
+  if (editingView !== viewState) {
+    setEditingView(viewState);
+    if (!isOpen) setIsEditing(false);
+  }
+
   // Sorted, and filtered down to the outstanding rows in semi mode
   const displayItems = useMemo(
     () => displayItemsOf(group, { viewState, sortMode, values, dates, checked, snoozed }),
     [group, viewState, sortMode, values, dates, checked, snoozed]
   );
+
+  // Reordering is only honest under manual sorting — value and date sorting
+  // override the stored order, so a moved row would snap straight back.
+  const canReorder = sortMode === "manual" && !!onMoveItem;
+
+  // The handle asks for "one row up/down" on screen, which is not always one
+  // slot in the stored order: the semi view hides everything already handled.
+  // Aim at the visible neighbour and move by whatever distance that really is.
+  function moveTowardNeighbour(itemId, dir) {
+    const at = displayItems.findIndex((i) => i.id === itemId);
+    const neighbour = displayItems[at + dir];
+    if (at === -1 || !neighbour) return;
+    const from = group.items.findIndex((i) => i.id === itemId);
+    const to   = group.items.findIndex((i) => i.id === neighbour.id);
+    if (from === -1 || to === -1) return;
+    onMoveItem(itemId, to - from);
+  }
 
   const total   = group.items.length;
   // snoozed counts as "handled" for the progress badge
@@ -178,7 +206,7 @@ export default function PaymentGroup({
   return (
     <section
       ref={groupRef}
-      className={`payment-group${allDone ? " all-done" : ""}${isEditing ? " editing" : ""}${isDragging ? " dragging" : ""}`}
+      className={`payment-group${allDone ? " all-done" : ""}${editPanelOpen ? " editing" : ""}${isDragging ? " dragging" : ""}`}
     >
       {/* Header */}
       <div
@@ -307,7 +335,7 @@ export default function PaymentGroup({
       </div>
 
       {/* Edit panel — slides open below header when isEditing */}
-      <div className={`group-edit-panel${isEditing ? " open" : ""}`}>
+      <div className={`group-edit-panel${editPanelOpen ? " open" : ""}`}>
         <div className="group-edit-inner">
         <div className="group-edit-inner-content">
 
@@ -405,6 +433,7 @@ export default function PaymentGroup({
               onOpenDetails={() => onOpenDetails(item.id)}
               onRemove={() => onRemoveItem(item.id)}
               onRename={(newLabel) => onRenameItem(item.id, newLabel)}
+              onMove={canReorder ? (dir) => moveTowardNeighbour(item.id, dir) : null}
               focused={item.id === focusItemId}
             />
           ))}

@@ -788,6 +788,34 @@
   background: var(--surface-hover);
 }
 
+/* ── Row drag handle — only rendered under manual sorting ── */
+.item-drag-handle {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  /* Pulls the checkbox back towards its usual inset, so turning manual sorting
+     on does not visibly re-indent every row. */
+  margin-left: -4px;
+  color: var(--text-muted);
+  opacity: 0.55;
+  cursor: grab;
+  /* The vertical drag is ours — without this the browser scrolls the page
+     instead, and the row never moves on a phone. */
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+
+  &:hover { opacity: 0.85; }
+  &:active { cursor: grabbing; opacity: 1; }
+}
+
+/* The row currently being walked up or down the list */
+.item-outer.item-reordering .item {
+  background: var(--surface-hover);
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
 .item-checkbox {
   width: 18px;
   height: 18px;
