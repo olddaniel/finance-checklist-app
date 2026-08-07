@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import AppShell from "./AppShell";
 import AuthScreen from "./components/AuthScreen";
 import NewPasswordScreen from "./components/NewPasswordScreen";
@@ -74,6 +74,22 @@ function CloudApp() {
   const [importError, setImportError] = useState(null);
   const [retryBusy, setRetryBusy]     = useState(false);
   const localBackup = useMemo(() => readLocalBackup(), []);
+
+  // Nothing in the account at all — never used, or emptied by hand
+  const accountEmpty = !cloud.loading && !cloud.loadError && cloud.groups.length === 0;
+  const offerImport  = accountEmpty && localBackup && !dismissedImport;
+
+  // The starter content goes in once, and only after every earlier question has
+  // been answered: while the import offer is on screen the account has to stay
+  // empty, or the offer vanishes under its own seed. The ref is what stops a
+  // failed insert from retrying on every render.
+  const { seedDefaults } = cloud;
+  const seeded = useRef(false);
+  useEffect(() => {
+    if (!session || recovering || !accountEmpty || offerImport || seeded.current) return;
+    seeded.current = true;
+    seedDefaults();
+  }, [session, recovering, accountEmpty, offerImport, seedDefaults]);
 
   // Offline at open, getSession() never settles and the icon pulses forever
   const [bootStalled, setBootStalled] = useState(false);
@@ -153,9 +169,6 @@ function CloudApp() {
       </div>
     );
   }
-
-  const accountEmpty = cloud.groups.length === 0;
-  const offerImport  = accountEmpty && localBackup && !dismissedImport;
 
   if (offerImport) {
     const items = localBackup.groups.reduce((n, g) => n + (g.items?.length ?? 0), 0);

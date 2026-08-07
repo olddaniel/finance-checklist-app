@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "../lib/supabase";
 import { groupToRow, itemToRow, rowsToState, stateToRows } from "../lib/mappers";
+import { seedState } from "../data";
 import { EXPENSE, REVENUE, todayISO } from "../utils";
 
 const VIEW_STATES = ["closed", "semi", "open", "balance"];
@@ -408,6 +409,39 @@ export function useCloudPayments(session, onError) {
     }
   }, [load, onError, applyState]);
 
+  // ── First run ──
+  // An account with no rows at all has never been used, so it gets the same
+  // examples a new local store gets. Nothing else ever writes the defaults:
+  // an account that has data keeps exactly the groups it has, including the
+  // ones it deleted. The check is repeated against the server immediately
+  // before inserting, because the snapshot that decided the account was empty
+  // may be seconds old and a second device may have seeded it meanwhile.
+  const seedDefaults = useCallback(async () => {
+    setStatus("saving");
+    pending.current += 1;
+    try {
+      const existing = await supabase.from("groups").select("id").limit(1);
+      if (existing.error) throw existing.error;
+      if (existing.data?.length) { setStatus("idle"); return false; }
+
+      const { groupRows, itemRows } = stateToRows(seedState());
+      const g = await supabase.from("groups").insert(groupRows);
+      if (g.error) throw g.error;
+      const i = await supabase.from("items").insert(itemRows);
+      if (i.error) throw i.error;
+
+      applyState(await load());
+      setStatus("idle");
+      return true;
+    } catch (e) {
+      setStatus("error");
+      onError?.(e.message ?? "Falha ao criar os exemplos");
+      return false;
+    } finally {
+      pending.current -= 1;
+    }
+  }, [load, onError, applyState]);
+
   // ── UI-only state ──
   const toggleGroupCollapsed = useCallback((groupId, { skipSemi = false, skipBalance = false } = {}) => {
     setCollapsedGroups((prev) => {
@@ -458,7 +492,7 @@ export function useCloudPayments(session, onError) {
     addItem, removeItem, restoreItem, renameItem, moveItem,
     addGroup, removeGroup, renameGroup, changeGroupDateMode, applyGroupOrder,
     setGroupOpeningBalance, resetGroup, setSortMode,
-    exportState, replaceAll,
+    exportState, replaceAll, seedDefaults,
     loading, status, loadError, reload,
   };
 }
