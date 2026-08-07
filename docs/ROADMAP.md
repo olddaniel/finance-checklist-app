@@ -176,6 +176,31 @@ values, days, kinds — which becomes the recurring definitions unchanged, with 
 2026 as the first generated month. There is no history to migrate because v1 never
 kept any.
 
+### Two flags, not one
+
+Cash movement and consumption are different questions, and collapsing them into a
+single flag forces a choice between an honest projection and honest spending totals.
+
+- `afeta_caixa` — does money leave the account?
+- `é despesa` — is this consumption?
+
+A transfer to Reservas is *yes / no*: R$3.000 genuinely leaves checking on the 5th,
+so the daily projection must count it or it reports money that is not there — but the
+month did not spend R$3.000, and counting it distorts the obrigatória split and
+double-counts against Patrimônio, which is also recording the money arriving.
+
+The same shape covers a fatura payment (money leaves; the purchases were already
+counted at purchase date) and the CDB porquinho's 377 rows of automatic
+aplicação/resgate (money moves, nothing is spent).
+
+Dashplan's *classificação neutra* is this idea with the two flags collapsed into one,
+which is exactly why it cannot project forward: neutralising the fatura payment for
+analysis also erases the day the money actually left.
+
+With both flags, whether Reservas is conceptually a separate pot stops affecting
+correctness — it only decides whether the reserve appears as its own balance on the
+daily screen or only inside Patrimônio, which is a display choice.
+
 ## Propose, don't ask
 
 Three unrelated products converge on one idea, and it is the difference between this
