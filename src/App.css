@@ -853,6 +853,28 @@
   color: var(--expense-soft);
 }
 
+/* ── Realised value on the row ──
+   Only rendered when it disagrees with the plan, so rows with nothing realised
+   are untouched. The planned figure stays editable but steps back; the realised
+   one is what actually happened, so it carries the row's direction colour. */
+.item-actual {
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--expense);
+}
+
+.item-outer.item-revenue .item-actual { color: var(--revenue); }
+
+.item-outer.item-has-actual .item-value-prefix,
+.item-outer.item-has-actual .item-value-input,
+.item-outer.item-has-actual:not(.item-checked):not(.item-snoozed) .item-value-prefix,
+.item-outer.item-has-actual:not(.item-checked):not(.item-snoozed) .item-value-input {
+  color: var(--text-muted);
+  text-decoration: line-through;
+}
+
 
 /* ── Add-bill row ── */
 .item-add-btn-row {
@@ -1245,6 +1267,14 @@
   color: var(--text-muted);
 }
 
+/* The realised pair sits below the planned one and must read as its echo, not
+   as a second set of equally important fields. */
+.modal-field.secondary {
+  padding: 7px 0;
+
+  & .modal-field-label { font-size: 12px; }
+}
+
 .modal-toggle-group {
   display: flex;
   gap: 6px;
@@ -1318,6 +1348,29 @@
 
   &::placeholder { color: var(--text-muted); font-weight: 400; }
   &:focus { outline: none; border-bottom-color: var(--accent); }
+
+  &.actual { font-size: 14px; font-weight: 500; }
+}
+
+.modal-actual-date-input {
+  -webkit-appearance: none;
+  appearance: none;
+  background: var(--surface-hover);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-family: inherit;
+  font-variant-numeric: tabular-nums;
+  padding: 5px 8px;
+  cursor: pointer;
+  flex-shrink: 0;
+
+  &.has-value { color: var(--text); }
+  &:focus { outline: none; border-color: var(--accent); }
+
+  /* Dark UI: the native picker glyph ships black */
+  &::-webkit-calendar-picker-indicator { filter: invert(0.6); cursor: pointer; }
 }
 
 .modal-date-select {
