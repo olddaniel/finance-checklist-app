@@ -1,10 +1,56 @@
-/* ── Design tokens ── */
+/* ── Design tokens ──
+   Light is the default; dark is opt-in via data-theme on <html>, set before
+   first paint by the inline script in index.html. Nothing below the token
+   blocks knows which theme is on. */
 :root {
+  --bg: #f4f5f8;
+  --surface: #ffffff;
+  --surface-hover: #eef0f5;
+  --surface-sunken: #f1f2f7;
+  --border: #e3e5ed;
+  /* Visible enough to read as a control outline, not just a hairline */
+  --border-strong: #878ca1;
+  --text: #1f2130;
+  --text-strong: #0d0e15;
+  --text-muted: #5e6175;
+  --text-done: #6f7387;
+  --accent: #4a4fd4;
+  --green: #0e7a4f;
+  --green-dim: #3f9f77;
+  --yellow: #8a5a00;
+  --red: #c0392b;
+
+  /* Snooze and delete paint saturated slabs behind the row, so they carry
+     their own foreground: on light the slabs stay dark and the text is white. */
+  --yellow-hot: #a06a00;
+  --yellow-deep: #6b4600;
+  --on-yellow: #ffffff;
+  --danger: #c0392b;
+  --danger-hot: #96281c;
+  --on-solid: #ffffff;
+
+  --shadow: rgba(24, 26, 45, 0.16);
+  --scrim: rgba(18, 20, 34, 0.38);
+
+  /* Money direction: revenue is green, expense is red. The soft variants are
+     for amounts repeated on every row, where full saturation reads as alarm. */
+  --revenue: var(--green);
+  --revenue-soft: #2e7d5c;
+  --expense: var(--red);
+  --expense-soft: #a8564c;
+  --radius: 10px;
+  --radius-sm: 6px;
+}
+
+:root[data-theme="dark"] {
   --bg: #1a1b23;
   --surface: #22232e;
   --surface-hover: #2a2b38;
+  --surface-sunken: #1e1f29;
   --border: #2e2f3d;
+  --border-strong: #3a3b4d;
   --text: #d4d5e0;
+  --text-strong: #ffffff;
   --text-muted: #6b6d82;
   --text-done: #4d4f60;
   --accent: #6c7bff;
@@ -13,14 +59,18 @@
   --yellow: #f5a623;
   --red: #e06c5f;
 
-  /* Money direction: revenue is green, expense is red. The soft variants are
-     for amounts repeated on every row, where full saturation reads as alarm. */
-  --revenue: var(--green);
+  --yellow-hot: #f5ba40;
+  --yellow-deep: #b87a00;
+  --on-yellow: #1a1200;
+  --danger: #c0392b;
+  --danger-hot: #e74c3c;
+  --on-solid: #ffffff;
+
+  --shadow: rgba(0, 0, 0, 0.55);
+  --scrim: rgba(10, 10, 15, 0.66);
+
   --revenue-soft: #6fd0a5;
-  --expense: var(--red);
   --expense-soft: #cf8d85;
-  --radius: 10px;
-  --radius-sm: 6px;
 }
 
 /* ── Layout ── */
@@ -68,7 +118,7 @@
 .app-title {
   font-size: 14px;
   font-weight: 600;
-  color: #fff;
+  color: var(--text-strong);
   margin: 0;
   flex: 1;
   letter-spacing: -0.2px;
@@ -131,7 +181,7 @@
 .group-title {
   font-size: 14px;
   font-weight: 600;
-  color: #fff;
+  color: var(--text-strong);
   margin: 0;
 }
 
@@ -216,7 +266,7 @@
   &.confirm {
     border-color: var(--yellow);
     color: var(--yellow);
-    background: rgba(245, 166, 35, 0.08);
+    background: color-mix(in srgb, var(--yellow) 8%, transparent);
   }
 }
 
@@ -242,7 +292,7 @@
   &.active {
     color: var(--accent);
     border-color: var(--accent);
-    background: rgba(108, 123, 255, 0.08);
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
   }
 }
 
@@ -252,7 +302,7 @@
   align-items: center;
   gap: 3px;
   padding: 4px 8px;
-  background: #2e2f3d;
+  background: var(--border);
   border-radius: var(--radius-sm);
   font-size: 12px;
   font-weight: 700;
@@ -272,13 +322,13 @@
 /* Semi-unfolded badge gets an accent tint */
 .progress-badge.semi {
   border-color: var(--accent);
-  background: rgba(108, 123, 255, 0.1);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
 /* Balance view badge — accent, not green: green now means revenue */
 .progress-badge.balance {
   border-color: var(--accent);
-  background: rgba(108, 123, 255, 0.18);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 /* ── Chevron — three states ── */
@@ -312,7 +362,7 @@
   display: grid;
   grid-template-rows: 0fr;
   transition: grid-template-rows 0.25s ease;
-  background: #1e1f29;
+  background: var(--surface-sunken);
   border-top: 1px solid transparent;
 }
 .group-metrics-panel.open {
@@ -453,12 +503,12 @@
   &.save {
     border-color: var(--accent);
     color: var(--accent);
-    &:hover { background: rgba(108,123,255,0.1); }
+    &:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
   }
 
   &.delete {
-    &.confirm { border-color: var(--yellow); color: var(--yellow); background: rgba(245,166,35,0.08); }
-    &:not(.confirm):hover { border-color: #c0392b; color: #c0392b; }
+    &.confirm { border-color: var(--yellow); color: var(--yellow); background: color-mix(in srgb, var(--yellow) 8%, transparent); }
+    &:not(.confirm):hover { border-color: var(--danger); color: var(--danger); }
   }
 
   &.reset:hover { border-color: var(--text-muted); color: var(--text); }
@@ -654,14 +704,14 @@
 .item-delete-zone {
   position: absolute;
   inset: 0;
-  background: #c0392b;
+  background: var(--danger);
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   justify-content: center;
   gap: 3px;
   padding-right: 22px;
-  color: #fff;
+  color: var(--on-solid);
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.3px;
@@ -670,7 +720,7 @@
   z-index: 1;
   transition: background 0.15s;
 
-  &.over-threshold { background: #e74c3c; }
+  &.over-threshold { background: var(--danger-hot); }
 }
 
 /* ── Snooze zone — full width, icon anchored to left edge ── */
@@ -684,7 +734,7 @@
   justify-content: center;
   gap: 3px;
   padding-left: 22px;
-  color: #1a1200;
+  color: var(--on-yellow);
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.3px;
@@ -693,8 +743,8 @@
   z-index: 0;
   transition: background 0.15s;
 
-  &.active      { background: #b87a00; color: #fff; }
-  &.over-threshold { background: #f5ba40; }
+  &.active      { background: var(--yellow-deep); color: var(--on-solid); }
+  &.over-threshold { background: var(--yellow-hot); }
 }
 
 /* Bring snooze zone above delete zone only while swiping right */
@@ -720,7 +770,7 @@
   flex-shrink: 0;
   border-radius: 5px;
   background: var(--surface-hover);
-  border: 2px solid #3a3b4d;
+  border: 2px solid var(--border-strong);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -918,7 +968,7 @@
 
 .item-add-confirm {
   color: var(--green);
-  &:hover:not(:disabled) { background: rgba(62,207,142,0.12); border-color: var(--green); }
+  &:hover:not(:disabled) { background: color-mix(in srgb, var(--green) 12%, transparent); border-color: var(--green); }
   &:disabled { opacity: 0.35; cursor: default; }
 }
 
@@ -987,7 +1037,7 @@
   transition: background 0.15s, color 0.15s, border-color 0.15s;
 
   &:hover { background: var(--surface-hover); color: var(--text); }
-  &.active { border-color: var(--accent); color: var(--accent); background: rgba(108,123,255,0.08); }
+  &.active { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
 }
 
 .group-add-actions {
@@ -1005,7 +1055,7 @@
   opacity: 0;
   pointer-events: none;
   transition: transform 0.22s ease, opacity 0.22s ease;
-  background: #2e2f3d;
+  background: var(--surface-hover);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 11px 12px 13px 16px;
@@ -1014,7 +1064,7 @@
   gap: 14px;
   z-index: 200;
   max-width: calc(100vw - 32px);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 4px 24px var(--shadow);
   overflow: hidden;
   white-space: nowrap;
 }
@@ -1089,7 +1139,7 @@
   position: fixed;
   z-index: 1000;
   pointer-events: none;
-  filter: drop-shadow(0 8px 28px rgba(0, 0, 0, 0.6));
+  filter: drop-shadow(0 8px 28px var(--shadow));
   will-change: top;
 }
 
@@ -1102,8 +1152,8 @@
 /* Placeholder gap where the card will be dropped */
 .group-drag-placeholder {
   border-radius: var(--radius);
-  border: 2px dashed rgba(108, 123, 255, 0.4);
-  background: rgba(108, 123, 255, 0.05);
+  border: 2px dashed color-mix(in srgb, var(--accent) 40%, transparent);
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
   transition: height 0.1s ease;
 }
 
@@ -1119,7 +1169,7 @@
   position: fixed;
   inset: 0;
   z-index: 300;
-  background: rgba(10, 10, 15, 0.66);
+  background: var(--scrim);
   backdrop-filter: blur(2px);
   display: flex;
   align-items: flex-end;
@@ -1145,14 +1195,14 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 12px 40px var(--shadow);
   padding: 14px;
   display: flex;
   flex-direction: column;
   gap: 12px;
   animation: modal-rise 0.2s ease;
 
-  &.revenue { border-color: rgba(62, 207, 142, 0.5); }
+  &.revenue { border-color: color-mix(in srgb, var(--revenue) 50%, transparent); }
 }
 
 @keyframes modal-rise {
@@ -1188,8 +1238,8 @@
   color: var(--text-muted);
   white-space: nowrap;
 
-  &.done    { border-color: var(--green);  color: var(--green);  background: rgba(62, 207, 142, 0.1); }
-  &.snoozed { border-color: var(--yellow); color: var(--yellow); background: rgba(245, 166, 35, 0.1); }
+  &.done    { border-color: var(--green);  color: var(--green);  background: color-mix(in srgb, var(--green) 10%, transparent); }
+  &.snoozed { border-color: var(--yellow); color: var(--yellow); background: color-mix(in srgb, var(--yellow) 10%, transparent); }
 }
 
 .modal-close {
@@ -1214,7 +1264,7 @@
   background: transparent;
   border: none;
   border-bottom: 1px solid var(--border);
-  color: #fff;
+  color: var(--text-strong);
   font-size: 16px;
   font-weight: 600;
   font-family: inherit;
@@ -1268,22 +1318,29 @@
   &.expense.active {
     border-color: var(--expense);
     color: var(--expense);
-    background: rgba(224, 108, 95, 0.12);
+    background: color-mix(in srgb, var(--expense) 12%, transparent);
   }
   &.revenue.active {
     border-color: var(--revenue);
     color: var(--revenue);
-    background: rgba(62, 207, 142, 0.12);
+    background: color-mix(in srgb, var(--revenue) 12%, transparent);
   }
   &.done.active {
     border-color: var(--green);
     color: var(--green);
-    background: rgba(62, 207, 142, 0.12);
+    background: color-mix(in srgb, var(--green) 12%, transparent);
   }
   &.snooze.active {
     border-color: var(--yellow);
     color: var(--yellow);
-    background: rgba(245, 166, 35, 0.12);
+    background: color-mix(in srgb, var(--yellow) 12%, transparent);
+  }
+
+  /* Theme picker in the data sheet — accent, like every other neutral choice */
+  &.theme.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
   }
 }
 
@@ -1363,20 +1420,20 @@
   transition: background 0.15s, color 0.15s, border-color 0.15s;
 
   &.delete {
-    &.confirm { border-color: var(--yellow); color: var(--yellow); background: rgba(245, 166, 35, 0.08); }
-    &:not(.confirm):hover { border-color: #c0392b; color: #c0392b; }
+    &.confirm { border-color: var(--yellow); color: var(--yellow); background: color-mix(in srgb, var(--yellow) 8%, transparent); }
+    &:not(.confirm):hover { border-color: var(--danger); color: var(--danger); }
   }
 
   &.close {
     border-color: var(--accent);
     color: var(--accent);
-    &:hover { background: rgba(108, 123, 255, 0.1); }
+    &:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
   }
 
   &.danger {
     border-color: var(--red);
     color: var(--red);
-    &:hover { background: rgba(224, 108, 95, 0.1); }
+    &:hover { background: color-mix(in srgb, var(--red) 10%, transparent); }
   }
 }
 
@@ -1437,7 +1494,7 @@
 .auth-title {
   font-size: 16px;
   font-weight: 600;
-  color: #fff;
+  color: var(--text-strong);
   margin: 0;
 }
 
@@ -1511,7 +1568,7 @@
   padding: 11px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--accent);
-  background: rgba(108, 123, 255, 0.14);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
   color: var(--accent);
   font-size: 14px;
   font-weight: 600;
@@ -1519,7 +1576,7 @@
   cursor: pointer;
   transition: background 0.15s;
 
-  &:hover:not(:disabled) { background: rgba(108, 123, 255, 0.22); }
+  &:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 22%, transparent); }
   &:disabled { opacity: 0.5; cursor: default; }
 }
 
@@ -1643,7 +1700,7 @@
   &.primary {
     border-color: var(--accent);
     color: var(--accent);
-    &:hover { background: rgba(108, 123, 255, 0.1); }
+    &:hover { background: color-mix(in srgb, var(--accent) 10%, transparent); }
   }
 }
 
@@ -1664,7 +1721,7 @@
   margin: 0;
   font-size: 14px;
   font-weight: 600;
-  color: #fff;
+  color: var(--text-strong);
 }
 
 .sheet-warning {

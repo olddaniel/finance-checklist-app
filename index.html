@@ -6,19 +6,33 @@
     <title>Finance Tracker</title>
 
     <!-- PWA / mobile -->
-    <meta name="theme-color" content="#22232e" />
+    <meta name="theme-color" content="#ffffff" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Finance" />
     <meta name="description" content="Controle de pagamentos mensais e anuais" />
+
+    <!-- Theme, applied before the bundle loads so there is no flash of the wrong one -->
+    <script>
+      try {
+        var t = localStorage.getItem("theme") === "dark" ? "dark" : "light";
+        document.documentElement.dataset.theme = t;
+        if (t === "dark") document.querySelector('meta[name="theme-color"]').content = "#22232e";
+      } catch (e) { /* private mode: light, the default */ }
+    </script>
+    <style>
+      /* Page background before App.css arrives — mirrors --bg in both themes */
+      body { margin: 0; background: #f4f5f8; }
+      :root[data-theme="dark"] body { background: #1a1b23; }
+    </style>
 
     <!-- Icons -->
     <link rel="icon" href="%BASE_URL%favicon.ico" sizes="48x48" />
     <link rel="icon" href="%BASE_URL%pwa-icon.svg" sizes="any" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="%BASE_URL%apple-touch-icon-180x180.png" />
   </head>
-  <body style="background:#1a1b23;margin:0">
+  <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
