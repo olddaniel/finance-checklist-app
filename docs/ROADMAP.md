@@ -537,15 +537,45 @@ The data is delivered. Dashplan reads one field where the fallback chain is
 `descriptionRaw`. The recategorisation treadmill is a bug in a reader, not a limit of
 Open Finance — which is the whole reason this project is worth building.
 
+## The last tabs: Futuro, Investimentos, Proteção, Contas
+
+Reviewing these closed the map — there is no fourth engine.
+
+**Futuro is the forward engine on a different clock.** *"No dia 23 você fica
+negativo"* and *"aos 60 você chega com R$5,6 mi"* are the same calculation —
+opening position plus flows, compounded forward — at horizons of a month and of
+decades. Dashplan's version rests on one dishonesty: *investimento mensal* is a
+slider the user guesses at, and the whole retirement curve hangs on it, while the
+screen next door reports the real month at R$29,99 against the R$12.000 meta. Here
+the aporte is **derived** from the three-track month, and the headline becomes the
+comparison Dashplan cannot make: *"precisa de R$8.051/mês; seu ritmo real foi
+R$X."* The essencial / desejo / sonho priority vocabulary is good pt-BR and kept.
+Phase 7.
+
+**The allocation layer is the genuine find.** Dashplan's Investimentos tab maps
+real synced positions to named purposes — reserva de emergência, projetos,
+aposentadoria — and the research confirmed no consumer app does this. The framing
+that makes it composable here: **categories partition the flow; allocations
+partition the stock.** A virtual label over real positions, no money moved, and a
+project in Futuro is simply a dated accumulation target that allocations fund. It
+carries one honesty check worth having on day one of its phase: a reserva showing
+only 42% in liquidez diária is partly fiction, and that is one warning line.
+Phase 7, with Futuro — they are one feature.
+
+**Contas is already subsumed** — principle 11 plus the account list. One scrap
+kept: Pluggy delivers card limits, so the fatura row can read *"R$1.351 de
+R$22.998"* for free.
+
 ## Not building
 
 Charts as decoration, calendars, receipt capture, push reminders, goals and
 gamification, envelope budgeting. Each costs a screen and none was ever wanted.
 
 Specifically dropped after reviewing Dashplan: the permanent "Atualizar token"
-banner (principle 11 replaces it), and the investment goal bar that reads
-*"0,6% — falta investir R$4.970"* on the 7th of the month. That is nagging, not
-information.
+banner (principle 11 replaces it), the investment goal bar that reads
+*"0,6% — falta investir R$4.970"* on the 7th of the month (nagging, not
+information), and the whole **Proteção** tab — hand-entered insurance policies,
+explicitly declined.
 
 ## Sequence
 
@@ -578,6 +608,12 @@ passivos/ativos.
 
 **Phase 6 — LLM as plan C.** Only for what rules and CNPJ leave unresolved, feeding
 a *"categorizado automaticamente · pendente de revisão"* queue. Never silent.
+
+**Phase 7 — the horizon.** Futuro and the allocation layer, together — they are one
+feature. Long-horizon projection driven by the *measured* monthly aporte rather than
+a typed slider; dated accumulation targets (essencial / desejo / sonho); allocations
+mapping real positions to reserva, projetos and aposentadoria, with the liquidity
+honesty check on the reserva. Lives inside Patrimônio; the tab count stays four.
 
 ## Before cancelling anything
 
