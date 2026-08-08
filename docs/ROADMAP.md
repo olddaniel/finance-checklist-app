@@ -96,7 +96,8 @@ Agreed, and binding on everything below.
    this is *classificação neutra* — good pt-BR, already familiar, adopted as-is.
 7. **Purchase date and invoice date are both kept.** A card purchase on 28 August is
    paid on 10 September. Cash flow cares about the 10th; spending analysis cares
-   about the 28th. The fatura is one planned row on the daily screen; its purchases
+   about the 28th — with one deliberate exception, parcelamentos, where each
+   parcela's competência defaults to its own month (see Parcelamentos). The fatura is one planned row on the daily screen; its purchases
    live at their own dates. Most Brazilian apps pick one and confuse the user
    permanently. This is the biggest structural decision in the app.
 
@@ -164,11 +165,14 @@ month, folder, active. Essentially today's state minus the ticks.
 real `due_date`, expected amount, status (`previsto` / `pago` / `ignorado`), and the
 transaction that paid it with what it actually cost.
 
-Months are **generated and then closed**, never reset. Navigating to Setembro creates
-its instances; Agosto stays as it was, permanently.
+Months are **generated and then closed**, never reset. Instances are created on
+first touch — navigating to Setembro, or the projection reaching into it; Agosto
+stays as it was, permanently.
 
 **"Closed" needs a precise meaning, because transactions arrive late.** Closed
-freezes the *plan*: instances stop changing and the month stops asking for review.
+freezes the *plan*: no new instances, no plan edits, and the month stops asking for
+review. A late-arriving match may still flip an instance from `previsto` to `pago` —
+reported through the same channel below, never silently.
 The *ledger* keeps accepting — a card purchase syncing on 3 September that belongs
 to August lands in August, and a closed month's totals may still move. They move
 visibly — *"agosto mudou depois de fechado: +R$45,20"* — never silently. Permanence
@@ -278,9 +282,11 @@ date, paid so far, still to come.
 
 - **Caixa** — each parcela hits the fatura it belongs to. That is just principle 7.
 - **Gastos** — default competência is each parcela's own month, matching how faturas
-  read and how the month is lived (*"minha fatura tem R$300 da TV"*). The purchase
-  event stays one tap away: *"TV Samsung — 3 de 10 pagas, faltam R$2.100."* A
-  whole-purchase lens can exist later; it is a view, not a schema change.
+  read and how the month is lived (*"minha fatura tem R$300 da TV"*). This is the one
+  deliberate exception to the axiom that gastos ignore cash timing: ten months of
+  R$300 is how a 10× purchase is actually experienced. The purchase event stays one
+  tap away: *"TV Samsung — 3 de 10 pagas, faltam R$2.100."* A whole-purchase lens can
+  exist later; it is a view, not a schema change.
 - **The projection gains the most.** Future parcelas of an existing compra are not
   estimates — they are **contracted outflows, known to the centavo, months ahead**.
   *"Sua fatura de outubro já nasce com R$1.240 de parcelas."* No number in the whole
@@ -295,9 +301,11 @@ date, paid so far, still to come.
 - **This household barely uses parcelamento** — roughly four or five real compras in
   twelve months. The section above was designed for Brazil-in-general; the data says
   design for this house.
-- **When it happens, the bank says so.** Metadata is delivered on half of all rows,
-  so linking is metadata-driven only. The descriptor-pattern parser and the
-  same-amount-sequence detector are *not built* until real data demands them.
+- **When it happens, the bank usually says so.** Metadata is delivered on half of
+  all rows. Linking is metadata-first; whether the 14 descriptor matches are false
+  positives or parcelas the metadata missed gets checked when Phase 1 parses them,
+  and the descriptor parser is built the first time a real compra arrives without
+  metadata — not before. The same-amount-sequence detector likewise.
 
 The purchase-event linkage still enters the schema at Phase 1 — two nullable columns
 now versus a migration later — but the machinery around it is deliberately minimal.
@@ -540,8 +548,9 @@ Vocabulary is taken from Dashplan where it is already good: *classificação neu
 One stage the screenshots never show: Pluggy's enrichment arrives in **its own
 English taxonomy** ("Proceeds interests and dividends", ~130 entries). A visible
 mapping table translates it into ours once, feeding `category_source: enrichment`.
-An unmapped Pluggy category is never guessed at — it falls to the review queue. And
-editing our categories edits the mapping through the same screen, never silently.
+An unmapped Pluggy category is never *silently* guessed at — it falls to the review
+queue, where Phase 6's LLM may propose but never commit. And editing our categories
+edits the mapping through the same screen, never silently.
 
 ## The ledger screen
 
@@ -578,11 +587,15 @@ the taxonomy — `Viagens` already exists as a category, and a trip is a contain
 spanning categories and months rather than a kind of expense — and Daniel does not
 use it.
 
-Tags are built now regardless — deliberately the **only** user-created free
-dimension. Everything else in the structure is rigid on purpose, and one escape
-valve is what keeps the rigidity liveable; with more than one, the escape valve
-becomes the structure. If projects are ever wanted they are a tag with a target,
-which is a small feature rather than a schema migration.
+Tags are built now regardless — deliberately the only **unstructured** user-created
+dimension. Categories are user-created too, but structured: kind, essencial, scope,
+exactly one per row. Tags are optional and unconstrained. The structure everywhere
+else is rigid on purpose, and one escape valve is what keeps the rigidity liveable;
+with more than one, the escape valve becomes the structure.
+
+If projects are ever wanted they are a tag with a target — the same object Phase 7
+calls a dated accumulation target, seen from the other side: the tag groups the
+spending (flow), the allocation funds the goal (stock). One project, two faces.
 
 ## Evidence: the Estabelecimento column
 
@@ -691,7 +704,8 @@ expenses; the forward balance takes its opening figure from the live account bal
 (with `kind`: empréstimo vs financiamento). Net worth, and nível de endividamento as
 passivos/ativos.
 
-**Phase 6 — LLM as plan C.** Only for what rules and CNPJ leave unresolved, feeding
+**Phase 6 — LLM as plan C.** Only for what rules, CNPJ and the enrichment mapping
+leave unresolved, feeding
 a *"categorizado automaticamente · pendente de revisão"* queue. Never silent.
 
 **Phase 7 — the horizon.** Futuro and the allocation layer, together — they are one
@@ -702,8 +716,8 @@ honesty check on the reserva. Lives inside Patrimônio; the tab count stays four
 
 ## The cancellation test
 
-"Replace Dashplan" needs a bar, or the decision stays vibes. Cancel when all four
-hold, and not before:
+"Replace Dashplan" needs a bar, or the decision stays vibes. The app is **ready**
+to replace it when all four hold:
 
 1. **Three consecutive months closed in under 15 minutes each** — the review loop
    converged in practice, not in theory.
@@ -716,8 +730,9 @@ hold, and not before:
    is not backfillable, and caps historical calls at 4 per month per institution —
    whatever Dashplan holds beyond that is unrecoverable once the account closes.
 
-Until all four are true, run both. After, paying for a second rear-view mirror is
-sentiment.
+Until all four are true, run both. After that the app is ready — whether to cancel
+stays Daniel's call, per the last section; Dashplan comes with the advice fee, and
+the test measures the tool, not the advice.
 
 ## Settled, not to be re-litigated
 
