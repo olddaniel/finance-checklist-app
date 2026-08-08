@@ -281,6 +281,30 @@ The projection spreads the remainder across the remaining days, which is more
 accurate than a single step would be, because that is how the money actually leaves.
 Guiabolso's explicit **"livre" bucket** is the same object with no category attached.
 
+Dashplan's Plano tab turns out to be this same object under another name, which
+settles what to take from it:
+
+- **Two numbers per category, kept apart.** Dashplan separates *valor médio* (what
+  you spend) from *meta* (what you wish you spent), and that distinction is
+  load-bearing. The médio is a **prediction** and is what the cash-flow projection
+  uses — always. The meta is an **aspiration** and drives only a progress display,
+  only where one was set. A projection built on the meta reports money that will not
+  exist; a plan that flatters lies about the 23rd. So: `meta` becomes one optional
+  field on the category expectation, and the projection never reads it.
+- **The average-as-proposal flow** ("quanto você costuma gastar?", pre-filled,
+  editable) is propose-don't-ask done right. Ours proposes the median over twelve
+  months rather than the mean over three — one atypical month poisons a short mean.
+- **The reserva de emergência one-liner** — one honest number, N months of despesas
+  obrigatórias, no chart. Belongs on Patrimônio, and it is only computable because
+  the obrigatória flag is editable here.
+- **Dropped:** the static "saldo do plano" (*"potencial de investir R$15.965,70
+  todos os meses"* is the flagship sentence with the date and the reality removed —
+  renda média minus gastos médios cannot see the fatura on the 10th); the "lição de
+  casa" banner (gamification, already rejected); the income-vs-spend stacked bar
+  (restates the header numbers as decoration); and progress bars on fixed bills —
+  a bill is binary and already has a checkbox, so bars are only drawn for
+  continuous-spend categories.
+
 So `dateMode: "none"` is retired. Reservas and Cartão stop being "the groups without
 dates" and become ordinary folders: the reserve transfer takes a conservatively early
 estimated day, the fatura takes its real due date.
