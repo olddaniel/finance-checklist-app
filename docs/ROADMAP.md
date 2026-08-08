@@ -288,9 +288,19 @@ date, paid so far, still to come.
 - And *"posso comprar em 10×?"* becomes answerable honestly: ten planned rows across
   ten months read against the projection, instead of one number against one month.
 
-**Before the schema freezes**, one verification against `pluggy_raw`: how many card
-rows carry `creditCardMetadata`, and how many only the descriptor pattern. That
-decides how much weight the fallback chain must bear.
+**Measured before the schema froze** (query over `pluggy_raw`, duplicates included):
+4,543 rows, 2,316 with a `creditCardMetadata` object, **9 with totalInstallments >
+1**, 14 matching the descriptor pattern. Two conclusions:
+
+- **This household barely uses parcelamento** — roughly four or five real compras in
+  twelve months. The section above was designed for Brazil-in-general; the data says
+  design for this house.
+- **When it happens, the bank says so.** Metadata is delivered on half of all rows,
+  so linking is metadata-driven only. The descriptor-pattern parser and the
+  same-amount-sequence detector are *not built* until real data demands them.
+
+The purchase-event linkage still enters the schema at Phase 1 — two nullable columns
+now versus a migration later — but the machinery around it is deliberately minimal.
 
 ### Undated expenses split in two
 
