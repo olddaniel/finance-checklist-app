@@ -20,7 +20,10 @@ Measured on twelve months of real data (2,041 transactions, 8 accounts):
 - 25 rules cover 50% of rows; 100 cover 73%. And ~700 of the 2,041 rows aren't
   spending at all (investments, transfers), so the real surface is smaller still.
 
-The premise holds.
+The premise holds — with one honesty note: Dashplan reads the **same Pluggy feed**,
+so the 97% is table stakes, not an advantage. The premise rests on what happens to
+the rest — merchant identity as a stage, rules that generalise, categories that can
+be edited — because that is where corrections either converge or run forever.
 
 ## The three engines
 
@@ -164,6 +167,13 @@ transaction that paid it with what it actually cost.
 Months are **generated and then closed**, never reset. Navigating to Setembro creates
 its instances; Agosto stays as it was, permanently.
 
+**"Closed" needs a precise meaning, because transactions arrive late.** Closed
+freezes the *plan*: instances stop changing and the month stops asking for review.
+The *ledger* keeps accepting — a card purchase syncing on 3 September that belongs
+to August lands in August, and a closed month's totals may still move. They move
+visibly — *"agosto mudou depois de fechado: +R$45,20"* — never silently. Permanence
+means no longer being overwritten, not being deaf.
+
 This also makes the fatura row stop being a typed number: its amount is computed from
 the card transactions inside the closed invoice period. That is principle 7 doing
 real work, and the join between the ledger and the plan.
@@ -252,6 +262,35 @@ Related to the card's purchase-vs-fatura split but not the same mechanism: the c
 is two linked rows resolved by the two flags, this is two dates on one row. The
 shared idea is that **when money moves and which period it belongs to are separate
 facts.**
+
+### Parcelamentos
+
+The hardest case of principle 7, and in Brazil it is endemic rather than an edge: a
+compra in 10× is one decision, ten cash events, and two defensible answers to "when
+was it spent".
+
+**The model: one purchase event, N parcela rows.** The parcela is what the bank
+actually delivers — one transaction per fatura, carrying `creditCardMetadata`
+(installment number, total, purchase date) when the bank provides it, a `03/10`
+descriptor pattern when it does not, and same-merchant-same-amount monthly sequences
+as plan C. Detection links them under a purchase event: merchant, total, purchase
+date, paid so far, still to come.
+
+- **Caixa** — each parcela hits the fatura it belongs to. That is just principle 7.
+- **Gastos** — default competência is each parcela's own month, matching how faturas
+  read and how the month is lived (*"minha fatura tem R$300 da TV"*). The purchase
+  event stays one tap away: *"TV Samsung — 3 de 10 pagas, faltam R$2.100."* A
+  whole-purchase lens can exist later; it is a view, not a schema change.
+- **The projection gains the most.** Future parcelas of an existing compra are not
+  estimates — they are **contracted outflows, known to the centavo, months ahead**.
+  *"Sua fatura de outubro já nasce com R$1.240 de parcelas."* No number in the whole
+  system is more certain, and most apps throw it away.
+- And *"posso comprar em 10×?"* becomes answerable honestly: ten planned rows across
+  ten months read against the projection, instead of one number against one month.
+
+**Before the schema freezes**, one verification against `pluggy_raw`: how many card
+rows carry `creditCardMetadata`, and how many only the descriptor pattern. That
+decides how much weight the fallback chain must bear.
 
 ### Undated expenses split in two
 
@@ -488,6 +527,12 @@ the thing Dashplan cannot do at all.
 Vocabulary is taken from Dashplan where it is already good: *classificação neutra*,
 *despesas obrigatórias / não obrigatórias*, *transferência mesma titularidade*.
 
+One stage the screenshots never show: Pluggy's enrichment arrives in **its own
+English taxonomy** ("Proceeds interests and dividends", ~130 entries). A visible
+mapping table translates it into ours once, feeding `category_source: enrichment`.
+An unmapped Pluggy category is never guessed at — it falls to the review queue. And
+editing our categories edits the mapping through the same screen, never silently.
+
 ## The ledger screen
 
 **Filters are the drill-down, not a feature.** Every number in the app taps through
@@ -523,8 +568,11 @@ the taxonomy — `Viagens` already exists as a category, and a trip is a contain
 spanning categories and months rather than a kind of expense — and Daniel does not
 use it.
 
-Tags are built now regardless, as a free dimension. If projects are ever wanted they
-are a tag with a target, which is a small feature rather than a schema migration.
+Tags are built now regardless — deliberately the **only** user-created free
+dimension. Everything else in the structure is rigid on purpose, and one escape
+valve is what keeps the rigidity liveable; with more than one, the escape valve
+becomes the structure. If projects are ever wanted they are a tag with a target,
+which is a small feature rather than a schema migration.
 
 ## Evidence: the Estabelecimento column
 
@@ -577,6 +625,30 @@ banner (principle 11 replaces it), the investment goal bar that reads
 information), and the whole **Proteção** tab — hand-entered insurance policies,
 explicitly declined.
 
+## Freshness
+
+Every value proposition here dies with stale data. "What have I paid, so I can rest"
+on three-day-old data means the screen says *não pago* for bills already paid, the
+user cross-checks against the bank app, and the trust the product exists to create is
+dead in a week — Pierre's second-loudest review complaint is exactly this. So
+freshness is specified, not hoped for:
+
+- **Webhook first.** Pluggy pushes item and transaction events; the endpoint exists
+  and activates the moment its shared secret is set. Push is the primary path.
+- **A scheduled sweep** — pg_cron inside the database invoking the sync function with
+  the service role — reconciles daily whatever push missed. Incremental pulls use
+  regular calls with the stored per-account cursor, never the capped historical
+  search.
+- **The UI never hides age.** The connection enum (principle 11) drives a quiet
+  *"dados de ontem à noite"* caveat next to the numbers it undermines. Staleness is
+  an event, not a banner.
+- Target: same-day for Open Finance connectors. Older than 48h is a state, and it
+  shows as one.
+
+Since the Pluggy functions now require a signed-in caller, scheduled invocations
+authenticate with the service role — and hand-run curl probing is over; a data
+question is SQL in the dashboard or a screen in the app.
+
 ## Sequence
 
 Ordered so that each phase is useful on its own, and nothing blocks on a bank.
@@ -584,10 +656,13 @@ Ordered so that each phase is useful on its own, and nothing blocks on a bank.
 **Phase 0 — done.** Cloud persistence, auth, Pluggy connected via Meu Pluggy,
 twelve months of history pulled and stored raw in `pluggy_raw`.
 
-**Phase 1 — the ledger.** Parse `pluggy_raw` into `bank_accounts`, `transactions`
-and `merchants`. Descriptor normalisation as its own stage. Persist everything on
-first sight: the 12-month API ceiling is not backfillable and that decision is
-irreversible.
+**Phase 1 — the ledger, and its oxygen.** Parse `pluggy_raw` into `bank_accounts`,
+`transactions` and `merchants`, with descriptor normalisation as its own stage — and
+build the ingestion that keeps it alive: webhook activated, scheduled incremental
+sync, cursor per account, freshness surfaced per principle 11. Parcelamento
+detection lands here too; it is a property of ingestion, not of review. Persist
+everything on first sight: the 12-month API ceiling is not backfillable and that
+decision is irreversible.
 
 **Phase 2 — categorisation that converges.** `rules` with `contains`/prefix
 matching, CNPJ resolution, the correction-becomes-a-rule flow with counted backfill
@@ -615,11 +690,24 @@ a typed slider; dated accumulation targets (essencial / desejo / sonho); allocat
 mapping real positions to reserva, projetos and aposentadoria, with the liquidity
 honesty check on the reserva. Lives inside Patrimônio; the tab count stays four.
 
-## Before cancelling anything
+## The cancellation test
 
-Export whatever history Dashplan holds beyond twelve months. Open Finance serves
-~12 months, is not backfillable, and caps historical calls at 4 per month per
-institution. Losing that export is irreversible.
+"Replace Dashplan" needs a bar, or the decision stays vibes. Cancel when all four
+hold, and not before:
+
+1. **Three consecutive months closed in under 15 minutes each** — the review loop
+   converged in practice, not in theory.
+2. **The projection held twice running** — projected end-of-month caixa within
+   ~R$300 of actual, two months in a row. (Threshold adjustable; pick it before
+   measuring, not after.)
+3. **Patrimônio agrees with Dashplan's** net worth within rounding, over one full
+   month.
+4. **The Dashplan export is taken and archived.** Open Finance serves ~12 months,
+   is not backfillable, and caps historical calls at 4 per month per institution —
+   whatever Dashplan holds beyond that is unrecoverable once the account closes.
+
+Until all four are true, run both. After, paying for a second rear-view mirror is
+sentiment.
 
 ## Settled, not to be re-litigated
 
@@ -627,3 +715,6 @@ institution. Losing that export is irreversible.
   of Open Finance and renewing it is a choice, not a defect.
 - The Ourocard returning zero transactions is correct; the card is unused.
 - Whether to keep paying for advice is Daniel's call alone.
+- The household is **one shared login** for now. Per-account isolation exists for
+  safety, not to split the couple across two ledgers; separate logins over a shared
+  view is future work, only if ever wanted.
